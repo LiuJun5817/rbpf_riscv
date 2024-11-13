@@ -1,8 +1,3 @@
-use std::fs::File;
-use std::io::Write;
-
-//nop mov add这三条指令在riscv里对应的样子
-
 macro_rules! exclude_operand_sizes {
     ($size:expr, $($to_exclude:path)|+ $(,)?) => {
         debug_assert!(match $size {
@@ -11,6 +6,44 @@ macro_rules! exclude_operand_sizes {
         });
     }
 }
+
+// RISC-V 64 寄存器定义
+pub const A0: u8 = 10;
+pub const A1: u8 = 11;
+pub const A2: u8 = 12;
+pub const A3: u8 = 13;
+pub const A4: u8 = 14;
+pub const A5: u8 = 15;
+pub const A6: u8 = 16;
+pub const A7: u8 = 17;
+
+pub const T0: u8 = 5;
+pub const T1: u8 = 6;
+pub const T2: u8 = 7;
+pub const T3: u8 = 28;
+pub const T4: u8 = 29;
+pub const T5: u8 = 30;
+pub const T6: u8 = 31;
+
+pub const S0: u8 = 8;
+pub const S1: u8 = 9;
+pub const S2: u8 = 18;
+pub const S3: u8 = 19;
+pub const S4: u8 = 20;
+pub const S5: u8 = 21;
+pub const S6: u8 = 22;
+pub const S7: u8 = 23;
+pub const S8: u8 = 24;
+pub const S9: u8 = 25;
+pub const S10: u8 = 26;
+pub const S11: u8 = 27;
+
+pub const RA: u8 = 1; // Return Address (Link Register)
+
+// RISC-V 参数寄存器（调用约定）
+pub const ARGUMENT_REGISTERS: [u8; 8] = [A0, A1, A2, A3, A4, A5, A6, A7];
+pub const CALLER_SAVED_REGISTERS: [u8; 8] = [A0, A1, A2, A3, A4, A5, A6, A7]; // a0 to a7 are caller saved
+pub const CALLEE_SAVED_REGISTERS: [u8; 12] = [S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11]; // s0 to s11 are callee saved
 
 #[derive(Debug, Clone, Copy)]
 pub enum RISCVInstructionType {
