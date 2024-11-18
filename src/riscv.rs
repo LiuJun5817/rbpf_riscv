@@ -1,3 +1,5 @@
+use crate::jit::OperandSize;
+
 macro_rules! exclude_operand_sizes {
     ($size:expr, $($to_exclude:path)|+ $(,)?) => {
         debug_assert!(match $size {
@@ -8,6 +10,7 @@ macro_rules! exclude_operand_sizes {
 }
 
 // RISC-V 64 寄存器定义
+//参数/返回值寄存器
 pub const A0: u8 = 10;
 pub const A1: u8 = 11;
 pub const A2: u8 = 12;
@@ -17,6 +20,7 @@ pub const A5: u8 = 15;
 pub const A6: u8 = 16;
 pub const A7: u8 = 17;
 
+//临时寄存器
 pub const T0: u8 = 5;
 pub const T1: u8 = 6;
 pub const T2: u8 = 7;
@@ -25,6 +29,7 @@ pub const T4: u8 = 29;
 pub const T5: u8 = 30;
 pub const T6: u8 = 31;
 
+//保存寄存器
 pub const S0: u8 = 8;
 pub const S1: u8 = 9;
 pub const S2: u8 = 18;
@@ -56,15 +61,6 @@ pub enum RISCVInstructionType {
     J, //Jump 无条件跳转指令 imm[20|10:1|11|19:12] rd opcode
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum OperandSize {
-    S0 = 0,   // 无操作数
-    S8 = 8,   // 8位
-    S16 = 16, // 16位
-    S32 = 32, // 32位
-    S64 = 64, // 64位
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct RISCVInstruction {
     inst_type: RISCVInstructionType, // 指令类型（R/I/S/B/U/J）
@@ -90,6 +86,81 @@ impl RISCVInstruction {
         immediate: None,
         size: OperandSize::S0,
     };
+
+    #[inline]
+    pub fn emit(&self) -> u32 {
+        match self.inst_type {
+            RISCVInstructionType::R => {
+                // R 型指令 (Register)
+                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                let rs2 = ((self.rs2.unwrap() & 0x1F) as i64) << 20;
+                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                let funct7 = ((self.funct7.unwrap() & 0x7F) as i64) << 25;
+                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (funct7 | rs2 | rs1 | funct3 | rd | opcode)
+                    .try_into()
+                    .unwrap()
+            }
+            RISCVInstructionType::I => {
+                // 计算 I 型指令格式
+                let imm = (self.immediate.unwrap() & 0xFFF) << 20;
+                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (imm | rs1 | funct3 | rd | opcode).try_into().unwrap()
+            }
+            RISCVInstructionType::S => {
+                // 计算 S 型指令格式
+                let imm_4_0 = (self.immediate.unwrap() & 0x1F) << 7; // 低 5 位
+                let imm_11_5 = (self.immediate.unwrap() & 0xFE0) << 20; // 高 7 位
+                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                let rs2 = ((self.rs2.unwrap() & 0x1F) as i64) << 20;
+                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (imm_11_5 | rs2 | rs1 | funct3 | imm_4_0 | opcode)
+                    .try_into()
+                    .unwrap()
+            }
+            RISCVInstructionType::B => {
+                // B 型指令（Branch）
+                let imm_11 = (self.immediate.unwrap() & 0x800) >> 4; // 提取立即数第 12 位，移动到 bit[7]
+                let imm_4_1 = (self.immediate.unwrap() & 0x1E) << 7; // 提取立即数 bit[1:4]，移动到 bit[8:11]
+                let imm_10_5 = (self.immediate.unwrap() & 0x7E0) << 20; // 提取立即数 bit[5:10]，移动到 bit[25:30]
+                let imm_12 = (self.immediate.unwrap() & 0x1000) << 19; // 提取立即数 bit[12]，移动到 bit[31]
+                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                let rs2 = ((self.rs2.unwrap() & 0x1F) as i64) << 20;
+                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (imm_12 | imm_10_5 | rs2 | rs1 | funct3 | imm_4_1 | imm_11 | opcode)
+                    .try_into()
+                    .unwrap()
+            }
+            RISCVInstructionType::U => {
+                // U 型指令 (Upper Immediate)
+                let imm = (self.immediate.unwrap() & 0xFFFFF) << 12; // 20 位高位立即数
+                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (imm | rd | opcode).try_into().unwrap()
+            }
+            RISCVInstructionType::J => {
+                // J 型指令 (Jump)
+                let imm_19_12 = (self.immediate.unwrap() & 0xFF000) << 12; // 提取立即数 bit[12:19]
+                let imm_11 = (self.immediate.unwrap() & 0x800) << 9; // 提取立即数 bit[11]
+                let imm_10_1 = (self.immediate.unwrap() & 0x7FE) << 20; // 提取立即数 bit[1:10]
+                let imm_20 = (self.immediate.unwrap() & 0x100000) << 11; // 提取立即数 bit[20]
+                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                let opcode = (self.opcode & 0x7F) as i64;
+                (imm_20 | imm_10_1 | imm_11 | imm_19_12 | rd | opcode)
+                    .try_into()
+                    .unwrap()
+            }
+            _ => {
+                panic!("暂不支持的指令类型");
+            }
+        }
+    }
 
     /// No operation (NOP) for RISC-V
     #[inline]
@@ -168,6 +239,23 @@ impl RISCVInstruction {
         }
     }
 
+    ///sub rs1 and rs2 to destination (sub rd, rs1, rs2)  rd = rs1 - rs2
+    #[inline]
+    pub const fn sub(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x20),
+            immediate: None,
+            size,
+        }
+    }
+
     ///logical left shift (SLLI rd, rs1, imm)
     #[inline]
     pub const fn slli(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
@@ -219,45 +307,6 @@ impl RISCVInstruction {
             immediate: Some(immediate),
             size,
             ..Self::DEFAULT
-        }
-    }
-
-    pub fn emit(&self) -> u32 {
-        match self.inst_type {
-            RISCVInstructionType::I => {
-                // 计算 I 型指令格式
-                let imm = (self.immediate.unwrap() & 0xFFF) << 20;
-                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
-                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
-                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
-                let opcode = (self.opcode & 0x7F) as i64;
-
-                (imm | rs1 | funct3 | rd | opcode).try_into().unwrap()
-            }
-            RISCVInstructionType::R => {
-                // R 型指令 (Register)
-                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
-                let rs2 = ((self.rs2.unwrap() & 0x1F) as i64) << 20;
-                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
-                let funct7 = ((self.funct7.unwrap() & 0x7F) as i64) << 25;
-                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
-                let opcode = (self.opcode & 0x7F) as i64;
-
-                (funct7 | rs2 | rs1 | funct3 | rd | opcode)
-                    .try_into()
-                    .unwrap()
-            }
-            RISCVInstructionType::U => {
-                // U 型指令 (Upper Immediate)
-                let imm = (self.immediate.unwrap() & 0xFFFFF) << 12; // 20 位高位立即数
-                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
-                let opcode = (self.opcode & 0x7F) as i64;
-
-                (imm | rd | opcode).try_into().unwrap()
-            }
-            _ => {
-                panic!("暂不支持的指令类型");
-            }
         }
     }
 }
