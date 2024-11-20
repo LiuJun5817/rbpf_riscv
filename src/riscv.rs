@@ -104,12 +104,24 @@ impl RISCVInstruction {
             }
             RISCVInstructionType::I => {
                 // 计算 I 型指令格式
-                let imm = (self.immediate.unwrap() & 0xFFF) << 20;
-                let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
-                let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
-                let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
-                let opcode = (self.opcode & 0x7F) as i64;
-                (imm | rs1 | funct3 | rd | opcode).try_into().unwrap()
+                if self.funct7.is_none() {
+                    let imm = (self.immediate.unwrap() & 0xFFF) << 20;
+                    let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                    let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                    let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                    let opcode = (self.opcode & 0x7F) as i64;
+                    (imm | rs1 | funct3 | rd | opcode).try_into().unwrap()
+                } else {
+                    let imm = (self.immediate.unwrap() & 0xFFF) << 20;
+                    let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
+                    let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
+                    let funct7 = ((self.funct7.unwrap() & 0x7F) as i64) << 25;
+                    let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                    let opcode = (self.opcode & 0x7F) as i64;
+                    (funct7 | imm | rs1 | funct3 | rd | opcode)
+                        .try_into()
+                        .unwrap()
+                }
             }
             RISCVInstructionType::S => {
                 // 计算 S 型指令格式
@@ -258,7 +270,7 @@ impl RISCVInstruction {
 
     ///logical left shift (SLLI rd, rs1, imm)
     #[inline]
-    pub const fn slli(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+    pub const fn slli(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
         exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
         Self {
             inst_type: RISCVInstructionType::I,
@@ -268,7 +280,24 @@ impl RISCVInstruction {
             rs1: Some(source1),
             rs2: None,
             funct7: Some(0),
-            immediate: Some(immediate),
+            immediate: Some(shift),
+            size,
+        }
+    }
+
+    ///logical right shift (SRLI rd, rs1, imm)
+    #[inline]
+    pub const fn srli(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13,
+            rd: Some(destination),
+            funct3: Some(5),
+            rs1: Some(source1),
+            rs2: None,
+            funct7: Some(0),
+            immediate: Some(shift),
             size,
         }
     }
@@ -289,6 +318,23 @@ impl RISCVInstruction {
             size,
         }
     }
+
+    /// rori (rori rd, rs1, shamt) Rotate Right(immediate)
+    // #[inline]  这不在基本指令集里，可由slli+srli+or指令实现
+    // pub const fn rori(size: OperandSize, source1: u8, shamt: i64, destination: u8) -> Self {
+    //     exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+    //     Self {
+    //         inst_type: RISCVInstructionType::I,
+    //         opcode: 0x13,
+    //         rd: Some(destination),
+    //         funct3: Some(5),
+    //         rs1: Some(source1),
+    //         rs2: None,
+    //         funct7: Some(0x30),
+    //         immediate: Some(shamt),
+    //         size,
+    //     }
+    // }
 
     /// Add imm and rs1 to destination (ADDIW rd, rs1, imm) 只保留低 32 位
     #[inline]

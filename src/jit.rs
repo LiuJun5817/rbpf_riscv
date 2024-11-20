@@ -154,6 +154,15 @@ pub fn load_immediate(size: OperandSize, destination: u8, immediate: i64) {
 }
 
 #[inline]
+pub fn rotate_right(size: OperandSize, source1: u8, shamt: i64, destination: u8) {
+    emit_ins(RISCVInstruction::mov(size, source1, T3));
+    emit_ins(RISCVInstruction::mov(size, source1, T4));
+    emit_ins(RISCVInstruction::slli(size, T3, shamt, T3));
+    emit_ins(RISCVInstruction::srli(size, T4, shamt, T4));
+    emit_ins(RISCVInstruction::or(size, T3, T4, destination));
+}
+
+#[inline]
 pub fn should_sanitize_constant(value: i64) -> bool {
     // if !self.config.sanitize_user_provided_values {
     //     return false;
@@ -184,12 +193,14 @@ pub fn emit_sanitized_load_immediate(size: OperandSize, destination: u8, value: 
         OperandSize::S64 if value >= i32::MIN as i64 && value <= i32::MAX as i64 => {
             let key = SmallRng::from_entropy().gen::<i32>() as i64;
             load_immediate(size, destination, value.wrapping_sub(key));
-            emit_ins(RISCVInstruction::addi(size, destination, key, destination));
+            load_immediate(size, T1, key);
+            emit_ins(RISCVInstruction::add(size, destination, T1, destination));
         }
         OperandSize::S64 if value as u64 & u32::MAX as u64 == 0 => {
             let key = SmallRng::from_entropy().gen::<i32>() as i64;
             load_immediate(size, destination, value.rotate_right(32).wrapping_sub(key));
-            emit_ins(RISCVInstruction::addi(size, destination, key, destination)); // wrapping_add(key)
+            load_immediate(size, T1, key);
+            emit_ins(RISCVInstruction::add(size, destination, T1, destination)); // wrapping_add(key)
             emit_ins(RISCVInstruction::slli(size, destination, 32, destination));
             // shift_left(32)
         }
@@ -205,21 +216,11 @@ pub fn emit_sanitized_load_immediate(size: OperandSize, destination: u8, value: 
                     .rotate_right(32)
                     .wrapping_sub(upper_key),
             );
-            emit_ins(RISCVInstruction::addi(
-                size,
-                destination,
-                upper_key,
-                destination,
-            )); // wrapping_add(upper_key)
-                // emit_ins(X86Instruction::alu(size, 0xc1, 1, destination, 32, None)); // rotate_right(32)
-                // emit_ins(X86Instruction::alu(
-                //     size,
-                //     0x81,
-                //     0,
-                //     destination,
-                //     lower_key,
-                //     None,
-                // )); // wrapping_add(lower_key)
+            load_immediate(size, T1, upper_key); // wrapping_add(upper_key)
+            emit_ins(RISCVInstruction::add(size, destination, T1, destination));
+            rotate_right(size, destination, 32, destination);
+            load_immediate(size, T2, lower_key); // wrapping_add(lower_key)
+            emit_ins(RISCVInstruction::add(size, destination, T2, destination));
         }
         _ => {
             #[cfg(debug_assertions)]
