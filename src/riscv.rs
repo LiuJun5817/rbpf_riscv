@@ -178,8 +178,10 @@ impl RISCVInstruction {
     #[inline]
     pub const fn noop() -> Self {
         Self {
-            opcode: 0x13,           // 操作码为 0x13 对应于 ADDI 指令
-            rd: Some(0),            // 操作数 1 (x0)
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13, // 操作码为 0x13 对应于 ADDI 指令
+            rd: Some(0),  // 操作数 1 (x0)
+            funct3: Some(0),
             rs1: Some(0),           // 操作数 2 (x0)
             immediate: Some(0),     // 立即数为 0
             size: OperandSize::S32, // 对应于 32 位操作数大小
@@ -268,6 +270,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// SLL (Shift Left Logical rd, rs1, rs2) 按位逻辑左移操作
+    #[inline]
+    pub const fn sll(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for shift operations
+            rd: Some(destination),
+            funct3: Some(0x1), // funct3 for SLL (Shift Left Logical)
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0), // funct7 for SLL
+            immediate: None,
+            size,
+        }
+    }
+
     ///logical left shift (SLLI rd, rs1, imm)
     #[inline]
     pub const fn slli(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
@@ -281,6 +300,23 @@ impl RISCVInstruction {
             rs2: None,
             funct7: Some(0),
             immediate: Some(shift),
+            size,
+        }
+    }
+
+    /// SRL (Shift Right Logical rd, rs1, rs2) 按位逻辑右移操作
+    #[inline]
+    pub const fn srl(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for shift operations
+            rd: Some(destination),
+            funct3: Some(0x5), // funct3 for SRL (Shift Right Logical)
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0), // funct7 for SRL
+            immediate: None,
             size,
         }
     }
@@ -302,6 +338,40 @@ impl RISCVInstruction {
         }
     }
 
+    /// SRA (Shift Right Arithmetic rd, rs1, rs2) 按位算术右移操作
+    #[inline]
+    pub const fn sra(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for shift operations
+            rd: Some(destination),
+            funct3: Some(0x5), // funct3 for SRA (Shift Right Arithmetic)
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x20), // funct7 for SRA
+            immediate: None,
+            size,
+        }
+    }
+
+    /// SRAI (Shift Right Arithmetic Immediate rd, rs1, imm) 算术右移立即数操作
+    #[inline]
+    pub const fn srai(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13, // I-type opcode for immediate shift operations
+            rd: Some(destination),
+            funct3: Some(0x5), // funct3 for SRAI (Shift Right Arithmetic Immediate)
+            rs1: Some(source1),
+            rs2: None,
+            funct7: Some(0x20), // funct7 for SRAI
+            immediate: Some(immediate),
+            size,
+        }
+    }
+
     /// OR (OR rd, rs1, rs2) 按位 or 操作
     #[inline]
     pub const fn or(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
@@ -319,22 +389,87 @@ impl RISCVInstruction {
         }
     }
 
-    /// rori (rori rd, rs1, shamt) Rotate Right(immediate)
-    // #[inline]  这不在基本指令集里，可由slli+srli+or指令实现
-    // pub const fn rori(size: OperandSize, source1: u8, shamt: i64, destination: u8) -> Self {
-    //     exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
-    //     Self {
-    //         inst_type: RISCVInstructionType::I,
-    //         opcode: 0x13,
-    //         rd: Some(destination),
-    //         funct3: Some(5),
-    //         rs1: Some(source1),
-    //         rs2: None,
-    //         funct7: Some(0x30),
-    //         immediate: Some(shamt),
-    //         size,
-    //     }
-    // }
+    /// ORI (ORI rd, rs1, imm) 按位 or 立即数操作
+    #[inline]
+    pub const fn ori(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13, // I-type opcode for ORI
+            rd: Some(destination),
+            funct3: Some(0x6), // funct3 for ORI
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// XOR (XOR rd, rs1, rs2) 按位异或操作
+    #[inline]
+    pub const fn xor(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for XOR
+            rd: Some(destination),
+            funct3: Some(0x4), // funct3 for XOR
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0), // funct7 for XOR
+            immediate: None,
+            size,
+        }
+    }
+
+    /// XORI (XORI rd, rs1, imm) 按位异或立即数操作
+    #[inline]
+    pub const fn xori(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13, // I-type opcode for XORI
+            rd: Some(destination),
+            funct3: Some(0x4), // funct3 for XORI
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// AND (AND rd, rs1, rs2) 按位与操作
+    #[inline]
+    pub const fn and(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for AND
+            rd: Some(destination),
+            funct3: Some(0x7), // funct3 for AND
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0), // funct7 for AND
+            immediate: None,
+            size,
+        }
+    }
+
+    /// ANDI (ANDI rd, rs1, imm) 按位与立即数操作
+    #[inline]
+    pub const fn andi(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13, // I-type opcode for ANDI
+            rd: Some(destination),
+            funct3: Some(0x7), // funct3 for ANDI
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
 
     /// Add imm and rs1 to destination (ADDIW rd, rs1, imm) 只保留低 32 位
     #[inline]

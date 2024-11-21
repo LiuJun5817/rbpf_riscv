@@ -228,3 +228,82 @@ pub fn emit_sanitized_load_immediate(size: OperandSize, destination: u8, value: 
         }
     }
 }
+
+#[inline]
+pub fn emit_sanitized_add(size: OperandSize, destination: u8, immediate: i64) {
+    if should_sanitize_constant(immediate) {
+        emit_sanitized_load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::add(size, T5, destination, destination));
+    } else {
+        load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::add(size, T5, destination, destination));
+    }
+}
+
+#[inline]
+pub fn emit_sanitized_sub(size: OperandSize, destination: u8, immediate: i64) {
+    if should_sanitize_constant(immediate) {
+        emit_sanitized_load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::sub(size, destination, T5, destination));
+    } else {
+        load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::sub(size, destination, T5, destination));
+    }
+}
+
+#[inline]
+pub fn emit_sanitized_or(size: OperandSize, destination: u8, immediate: i64) {
+    if should_sanitize_constant(immediate) {
+        emit_sanitized_load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::or(size, destination, T5, destination));
+    } else if immediate >= -2048 && immediate <= 2047 {
+        // 立即数在 12 位范围内，直接使用 ORI
+        emit_ins(RISCVInstruction::ori(
+            size,
+            destination,
+            immediate,
+            destination,
+        ));
+    } else {
+        load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::or(size, destination, T5, destination));
+    }
+}
+
+#[inline]
+pub fn emit_sanitized_xor(size: OperandSize, destination: u8, immediate: i64) {
+    if should_sanitize_constant(immediate) {
+        emit_sanitized_load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::xor(size, destination, T5, destination));
+    } else if immediate >= -2048 && immediate <= 2047 {
+        // 立即数在 12 位范围内，直接使用 XORI
+        emit_ins(RISCVInstruction::xori(
+            size,
+            destination,
+            immediate,
+            destination,
+        ));
+    } else {
+        load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::xor(size, destination, T5, destination));
+    }
+}
+
+#[inline]
+pub fn emit_sanitized_and(size: OperandSize, destination: u8, immediate: i64) {
+    if should_sanitize_constant(immediate) {
+        emit_sanitized_load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::and(size, destination, T5, destination));
+    } else if immediate >= -2048 && immediate <= 2047 {
+        // 立即数在 12 位范围内，直接使用 ANDI
+        emit_ins(RISCVInstruction::andi(
+            size,
+            destination,
+            immediate,
+            destination,
+        ));
+    } else {
+        load_immediate(size, T5, immediate);
+        emit_ins(RISCVInstruction::and(size, destination, T5, destination));
+    }
+}
