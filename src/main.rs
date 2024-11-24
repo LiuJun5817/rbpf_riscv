@@ -1,5 +1,15 @@
+mod aligned_memory;
+mod ebpf;
+mod elf;
+mod error;
 mod jit;
+mod memory_management;
+mod memory_region;
+mod program;
 mod riscv;
+mod static_analysis;
+mod verifier;
+mod vm;
 use crate::{jit::*, riscv::*};
 
 fn main() {
@@ -16,16 +26,16 @@ fn main() {
     // emit_sanitized_load_immediate(OperandSize::S64, S0, 0x12345ffff);
 
     // emit_ins(RISCVInstruction::noop());
-    load_immediate(OperandSize::S32, S0, -8);
-    load_immediate(OperandSize::S32, S1, 3);
+    // load_immediate(OperandSize::S32, S0, -8);
+    // load_immediate(OperandSize::S32, S1, 3);
     // emit_ins(RISCVInstruction::sub(OperandSize::S32, S0, S1, S2));
     // emit_ins(RISCVInstruction::sll(OperandSize::S32, S0, S1, S3));
     // emit_ins(RISCVInstruction::srl(OperandSize::S32, S0, S1, S4));
-    emit_ins(RISCVInstruction::sra(OperandSize::S32, S0, S1, S5));
-    emit_ins(RISCVInstruction::srai(OperandSize::S32, S0, 3, S6));
-    emit_ins(RISCVInstruction::ori(OperandSize::S32, S0, 0x111, S7));
-    emit_ins(RISCVInstruction::xor(OperandSize::S32, S0, S1, S8));
-    emit_ins(RISCVInstruction::xori(OperandSize::S32, S0, 0x111, S9));
-    emit_ins(RISCVInstruction::and(OperandSize::S32, S0, S1, S10));
-    emit_ins(RISCVInstruction::andi(OperandSize::S32, S0, 0x1111, S11));
+    // emit_ins(RISCVInstruction::sra(OperandSize::S32, S0, S1, S5));
+    // emit_ins(RISCVInstruction::srai(OperandSize::S32, S0, 3, S6));
+    // emit_ins(RISCVInstruction::ori(OperandSize::S32, S0, 0x111, S7));
+    // emit_ins(RISCVInstruction::xor(OperandSize::S32, S0, S1, S8));
+    // emit_ins(RISCVInstruction::xori(OperandSize::S32, S0, 0x111, S9));
+    // emit_ins(RISCVInstruction::and(OperandSize::S32, S0, S1, S10));
+    // emit_ins(RISCVInstruction::andi(OperandSize::S32, S0, 0x1111, S11));
 }

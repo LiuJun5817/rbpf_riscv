@@ -43,7 +43,11 @@ pub const S9: u8 = 25;
 pub const S10: u8 = 26;
 pub const S11: u8 = 27;
 
+pub const ZERO: u8 = 0; //zero 寄存器（值始终为0）
 pub const RA: u8 = 1; // Return Address (Link Register)
+pub const SP: u8 = 2; // 栈指针
+pub const GP: u8 = 3; //全局指针
+pub const TP: u8 = 4; //线程指针
 
 // RISC-V 参数寄存器（调用约定）
 pub const ARGUMENT_REGISTERS: [u8; 8] = [A0, A1, A2, A3, A4, A5, A6, A7];
@@ -465,6 +469,104 @@ impl RISCVInstruction {
             rd: Some(destination),
             funct3: Some(0x7), // funct3 for ANDI
             rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// LB rd, rs1, imm  // rd = MEM[rs1 + imm] (Load Byte)
+    //rs1存内存地址，imm代表偏移量，将内存地址（rs1+imm）的1字节值存到rd寄存器中
+    #[inline]
+    pub const fn lb(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x03,
+            rd: Some(destination),
+            funct3: Some(0),
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// LH rd, imm(rs1)  // rd = MEM[rs1 + imm] (Load Halfword) 一个半字（2字节）
+    #[inline]
+    pub const fn lh(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x03,
+            rd: Some(destination),
+            funct3: Some(1),
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// LW rd, rs1, imm  // rd = MEM[rs1 + imm] (Load Word) 一个字（4字节）
+    #[inline]
+    pub const fn lw(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x03,
+            rd: Some(destination),
+            funct3: Some(2),
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// SB rs2, imm(rs1)  // MEM[rs1 + imm] = rs2 (Store Byte)
+    //rs1存内存地址，imm代表偏移量，将寄存器rs2中的1字节值存到内存地址（rs1+imm）中
+    #[inline]
+    pub const fn sb(size: OperandSize, source1: u8, source2: u8, immediate: i64) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::S,
+            opcode: 0x23,
+            funct3: Some(0),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// SH rs2, imm(rs1)  // MEM[rs1 + imm] = rs2 (Store Halfword) 一个半字（2字节）
+    #[inline]
+    pub const fn sh(size: OperandSize, source1: u8, source2: u8, immediate: i64) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::S,
+            opcode: 0x23,
+            funct3: Some(1),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// SW rs2, imm(rs1)  // MEM[rs1 + imm] = rs2 (STORE Word) 一个字（4字节）
+    #[inline]
+    pub const fn sw(size: OperandSize, source1: u8, source2: u8, immediate: i64) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::S,
+            opcode: 0x23,
+            funct3: Some(2),
+            rs1: Some(source1),
+            rs2: Some(source2),
             immediate: Some(immediate),
             size,
             ..Self::DEFAULT
