@@ -133,3 +133,41 @@ pub struct Executable<C: ContextObject> {
     //#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
     compiled_program: Option<JitProgram>,
 }
+
+impl<C: ContextObject> Executable<C> {
+    /// Get the configuration settings
+    pub fn get_config(&self) -> &Config {
+        self.loader.get_config()
+    }
+
+    /// Get the executable sbpf_version
+    pub fn get_sbpf_version(&self) -> &SBPFVersion {
+        &self.sbpf_version
+    }
+
+    /// Get the .text section virtual address and bytes
+    pub fn get_text_bytes(&self) -> (u64, &[u8]) {
+        let (ro_offset, ro_section) = match &self.ro_section {
+            Section::Owned(offset, data) => (*offset, data.as_slice()),
+            Section::Borrowed(offset, byte_range) => {
+                (*offset, &self.elf_bytes.as_slice()[byte_range.clone()])
+            }
+        };
+
+        let offset = self
+            .text_section_info
+            .vaddr
+            .saturating_sub(ebpf::MM_PROGRAM_START)
+            .saturating_sub(ro_offset as u64) as usize;
+        (
+            self.text_section_info.vaddr,
+            &ro_section[offset..offset.saturating_add(self.text_section_info.offset_range.len())],
+        )
+    }
+
+    pub fn jit_compile(&mut self) -> Result<(), crate::error::EbpfError> {
+        let jit = JitCompiler::<C>::new(self)?;
+        self.compiled_program = Some(jit.compile()?);
+        Ok(())
+    }
+}
