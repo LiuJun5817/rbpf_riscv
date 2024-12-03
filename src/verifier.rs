@@ -215,7 +215,7 @@ fn check_callx_register(
     } else {
         insn.imm
     };
-    if !(0..=10).contains(&reg) || (reg == 10 && config.reject_jalr_x10) {
+    if !(0..=10).contains(&reg) || (reg == 10 && config.reject_callx_r10) {
         return Err(VerifierError::InvalidRegister(insn_ptr));
     }
     Ok(())

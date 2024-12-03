@@ -364,6 +364,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     }
                     
                     // and return
+                    self.emit_ins(RISCVInstruction::jalr(OperandSize::S64, RA, 0, ZERO));
                 }
                 _ => return Err(EbpfError::UnsupportedInstruction),
             }

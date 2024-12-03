@@ -606,4 +606,20 @@ impl RISCVInstruction {
             ..Self::DEFAULT
         }
     }
+
+    /// Jump to the address in rs1 + imm and link to rd (typically ra)
+    #[inline]
+    pub const fn jalr(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x67,
+            rd: Some(destination),
+            funct3: Some(0),
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size,
+            ..Self::DEFAULT
+        }
+    }
 }

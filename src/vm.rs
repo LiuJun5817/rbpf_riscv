@@ -48,8 +48,10 @@ pub struct Config {
     pub sanitize_user_provided_values: bool,
     /// Throw ElfError::SymbolHashCollision when a BPF function collides with a registered syscall
     pub external_internal_function_hash_collision: bool,
-    /// Have the verifier reject "jalr x1, x10, offset"
-    pub reject_jalr_x10: bool,
+    // /// Have the verifier reject "jalr x1, x10, offset"要改吗？
+    // pub reject_jalr_x10: bool,
+    /// Have the verifier reject "callx r10"
+    pub reject_callx_r10: bool,
     /// Avoid copying read only sections when possible
     pub optimize_rodata: bool,
     /// Use the new ELF parser
@@ -84,13 +86,32 @@ impl Default for Config {
             noop_instruction_rate: 256,
             sanitize_user_provided_values: true,
             external_internal_function_hash_collision: true,
-            reject_jalr_x10: true,
+            reject_callx_r10: true,
             optimize_rodata: true,
             new_elf_parser: true,
             aligned_memory_mapping: true,
             enable_sbpf_v1: true,
             enable_sbpf_v2: true,
         }
+    }
+}
+
+/// Static constructors for Executable
+impl<C: ContextObject> Executable<C> {
+    /// Creates an executable from an ELF file
+    pub fn from_elf(elf_bytes: &[u8], loader: Arc<BuiltinProgram<C>>) -> Result<Self, EbpfError> {
+        let executable = Executable::load(elf_bytes, loader)?;
+        Ok(executable)
+    }
+    /// Creates an executable from machine code
+    pub fn from_text_bytes(
+        text_bytes: &[u8],
+        loader: Arc<BuiltinProgram<C>>,
+        sbpf_version: SBPFVersion,
+        function_registry: FunctionRegistry<usize>,
+    ) -> Result<Self, EbpfError> {
+        Executable::new_from_text_bytes(text_bytes, loader, sbpf_version, function_registry)
+            .map_err(EbpfError::ElfError)
     }
 }
 
@@ -124,6 +145,28 @@ impl ContextObject for TestContextObject {
 
     fn get_remaining(&self) -> u64 {
         self.remaining
+    }
+}
+
+impl TestContextObject {
+    /// Initialize with instruction meter
+    pub fn new(remaining: u64) -> Self {
+        Self {
+            trace_log: Vec::new(),
+            remaining,
+        }
+    }
+
+    /// Compares an interpreter trace and a JIT trace.
+    ///
+    /// The log of the JIT can be longer because it only validates the instruction meter at branches.
+    pub fn compare_trace_log(interpreter: &Self, jit: &Self) -> bool {
+        let interpreter = interpreter.trace_log.as_slice();
+        let mut jit = jit.trace_log.as_slice();
+        if jit.len() > interpreter.len() {
+            jit = &jit[0..interpreter.len()];
+        }
+        interpreter == jit
     }
 }
 
