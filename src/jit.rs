@@ -8,6 +8,7 @@ use std::io::Write;
 use std::mem::offset_of;
 use std::{fmt::Debug, mem, ptr};
 
+use crate::riscv;
 use crate::{
     ebpf::{self, FIRST_SCRATCH_REG, FRAME_PTR_REG, INSN_SIZE, SCRATCH_REGS, STACK_PTR_REG},
     elf::Executable,
@@ -320,6 +321,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     /// Compiles the given executable, consuming the compiler
     pub fn compile(mut self) -> Result<JitProgram, EbpfError> {
         let text_section_base = self.result.text_section.as_ptr();
+
+        self.emit_subroutines();
+
         while self.pc * ebpf::INSN_SIZE < self.program.len(){
             if self.offset_in_text_section + MAX_MACHINE_CODE_LENGTH_PER_INSTRUCTION > self.result.text_section.len() {
                 return Err(EbpfError::ExhaustedTextSegment(self.pc));
@@ -332,6 +336,38 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             let target_pc = (self.pc as isize + insn.off as isize + 1) as usize;//计算目标程序计数器
 
             match insn.opc{
+                // BPF_ALU class
+                ebpf::ADD32_IMM  => {
+                    self.emit_sanitized_add(OperandSize::S32, dst, insn.imm);
+                }
+                ebpf::ADD32_REG  => {
+                    self.emit_ins(RISCVInstruction::add(OperandSize::S32, src, dst, dst));
+                }
+                ebpf::SUB32_IMM  =>{
+                    if self.executable.get_sbpf_version().swap_sub_reg_imm_operands() {
+                        self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst));
+                        if insn.imm != 0{
+                            self.emit_sanitized_add(OperandSize::S32, dst, insn.imm);
+                        }
+                    } else {
+                        self.emit_sanitized_sub(OperandSize::S32, dst, insn.imm);
+                    }
+                }
+                ebpf::SUB32_REG  => {
+                    self.emit_ins(RISCVInstruction::sub(OperandSize::S32, dst, src, dst));
+                }
+                // TODO ebpf::MUL32_IMM | ebpf::DIV32_IMM | ebpf::MOD32_IMM
+                ebpf::OR32_IMM   => self.emit_sanitized_or(OperandSize::S32, dst, insn.imm),
+                ebpf::OR32_REG   => self.emit_ins(RISCVInstruction::or(OperandSize::S32, dst, src, dst)),
+                ebpf::AND32_IMM  => self.emit_sanitized_and(OperandSize::S32, dst, insn.imm),
+                ebpf::AND32_REG  => self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, src, dst)),
+                ebpf::LSH32_IMM  => self.emit_ins(RISCVInstruction::slli(OperandSize::S32, dst, insn.imm, dst)),
+                ebpf::LSH32_REG  => self.emit_ins(RISCVInstruction::sll(OperandSize::S32, dst, src, dst)),
+                ebpf::RSH32_IMM  => self.emit_ins(RISCVInstruction::srli(OperandSize::S32, dst, insn.imm, dst)),
+                ebpf::RSH32_REG  => self.emit_ins(RISCVInstruction::srl(OperandSize::S32, dst, src, dst)),
+                ebpf::NEG32     if self.executable.get_sbpf_version().enable_neg() => self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst)),
+                ebpf::XOR32_IMM  => self.emit_sanitized_xor(OperandSize::S32, dst, insn.imm),
+                ebpf::XOR32_REG  => self.emit_ins(RISCVInstruction::xor(OperandSize::S32, dst, src, dst)),
                 ebpf::MOV32_IMM  => {
                     if self.should_sanitize_constant(insn.imm) {//检查立即数是否需要进行安全处理，防止可能的安全漏洞 
                         self.emit_sanitized_load_immediate(OperandSize::S32, dst, insn.imm);
@@ -340,15 +376,62 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     }
                 }
                 ebpf::MOV32_REG  => {println!("here8");self.emit_ins(RISCVInstruction::mov(OperandSize::S32, src, dst));println!("here9");}//将一个寄存器中的值移动到另一个寄存器
+                ebpf::ARSH32_IMM => self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, insn.imm, dst)),
+                ebpf::ARSH32_REG => self.emit_ins(RISCVInstruction::sra(OperandSize::S32, dst, src, dst)),
+                //TODO ebpf::LE
+                //TODO ebpf::BE
+
+                // BPF_ALU64 class
+                ebpf::ADD64_IMM  => self.emit_sanitized_add(OperandSize::S64, dst, insn.imm),
+                ebpf::ADD64_REG  => self.emit_ins(RISCVInstruction::add(OperandSize::S64, src, dst, dst)),
+                ebpf::SUB64_IMM  =>{
+                    if self.executable.get_sbpf_version().swap_sub_reg_imm_operands() {
+                        self.emit_ins(RISCVInstruction::sub(OperandSize::S64, ZERO, dst, dst));
+                        if insn.imm != 0{
+                            self.emit_sanitized_add(OperandSize::S64, dst, insn.imm);
+                        }
+                    } else {
+                        self.emit_sanitized_sub(OperandSize::S64, dst, insn.imm);
+                    }
+                }
+                ebpf::SUB64_REG  => {
+                    self.emit_ins(RISCVInstruction::sub(OperandSize::S64, dst, src, dst));
+                }
+                // TODO ebpf::MUL64_IMM | ebpf::DIV64_IMM | ebpf::MOD64_IMM
+
+                ebpf::OR64_IMM   => self.emit_sanitized_or(OperandSize::S64, dst, insn.imm),
+                ebpf::OR64_REG   => self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, src, dst)),
+                ebpf::AND64_IMM  => self.emit_sanitized_and(OperandSize::S64, dst, insn.imm),
+                ebpf::AND64_REG  => self.emit_ins(RISCVInstruction::and(OperandSize::S64, dst, src, dst)),
+                ebpf::LSH64_IMM  => self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, insn.imm, dst)),
+                ebpf::LSH64_REG  => self.emit_ins(RISCVInstruction::sll(OperandSize::S64, dst, src, dst)),
+                ebpf::RSH64_IMM  => self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, insn.imm, dst)),
+                ebpf::RSH64_REG  => self.emit_ins(RISCVInstruction::srl(OperandSize::S64, dst, src, dst)),
+                ebpf::NEG64     if self.executable.get_sbpf_version().enable_neg() => self.emit_ins(RISCVInstruction::sub(OperandSize::S64, ZERO, dst, dst)),
+                ebpf::XOR64_IMM  => self.emit_sanitized_xor(OperandSize::S64, dst, insn.imm),
+                ebpf::XOR64_REG  => self.emit_ins(RISCVInstruction::xor(OperandSize::S64, dst, src, dst)),
+                ebpf::MOV64_IMM  => {
+                    if self.should_sanitize_constant(insn.imm) {//检查立即数是否需要进行安全处理，防止可能的安全漏洞 
+                        self.emit_sanitized_load_immediate(OperandSize::S64, dst, insn.imm);
+                    } else {println!("here11");
+                        self.load_immediate(OperandSize::S64, dst, insn.imm);
+                    }
+                }
+                ebpf::MOV64_REG  => {println!("here18");self.emit_ins(RISCVInstruction::mov(OperandSize::S64, src, dst));println!("here19");}//将一个寄存器中的值移动到另一个寄存器
+                ebpf::ARSH64_IMM => self.emit_ins(RISCVInstruction::srai(OperandSize::S64, dst, insn.imm, dst)),
+                ebpf::ARSH64_REG => self.emit_ins(RISCVInstruction::sra(OperandSize::S64, dst, src, dst)),
+                //TODO ebpf::HOR64_IMM
+
+
                 ebpf::EXIT      =>{println!("here6");
                     let call_depth_access=self.slot_in_vm(RuntimeEnvironmentSlot::CallDepth) as i64;
                     self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, call_depth_access, REGISTER_MAP[FRAME_PTR_REG]));
                 
                     // If CallDepth == 0, we've reached the exit instruction of the entry point
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S32, REGISTER_MAP[FRAME_PTR_REG], ZERO, self.relative_to_anchor(ANCHOR_EXIT, 4)));
-                    if self.config.enable_instruction_meter {
-                        self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
-                    }
+                    // if self.config.enable_instruction_meter {
+                    //     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    // }
                     // we're done
 
                     // else decrement and update CallDepth
@@ -364,7 +447,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     }
                     
                     // and return
-                    self.emit_ins(RISCVInstruction::jalr(OperandSize::S64, RA, 0, ZERO));
+                    self.emit_ins(RISCVInstruction::return_near());
                 }
                 _ => return Err(EbpfError::UnsupportedInstruction),
             }
@@ -622,6 +705,33 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             self.load_immediate(size, T5, immediate);
             self.emit_ins(RISCVInstruction::and(size, destination, T5, destination));
         }
+    }   
+
+    #[inline]
+    fn emit_validate_instruction_count(&mut self, exclusive: bool, pc: Option<usize>) {
+        if !self.config.enable_instruction_meter {
+            return;
+        }
+    }
+
+    fn emit_subroutines(&mut self){
+        // Epilogue
+        self.set_anchor(ANCHOR_EPILOGUE);
+        // Restore stack pointer in case we did not exit gracefully
+        self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP));
+        self.emit_ins(RISCVInstruction::return_near());
+        
+        // Quit gracefully
+        self.set_anchor(ANCHOR_EXIT);
+        // self.emit_validate_instruction_count(false, None);
+        self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, REGISTER_OTHER_SCRATCH));
+        self.emit_ins(RISCVInstruction::store(OperandSize::S64, REGISTER_MAP[0], REGISTER_OTHER_SCRATCH, std::mem::size_of::<u64>() as i64));
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_MAP[0], 0, REGISTER_MAP[0]));
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_EPILOGUE, 4), ZERO));
+    }
+
+    fn set_anchor(&mut self, anchor: usize) {
+        self.anchors[anchor] = unsafe { self.result.text_section.as_ptr().add(self.offset_in_text_section) };
     }
 
     // instruction_length = 4字节

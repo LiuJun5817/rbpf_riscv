@@ -110,7 +110,12 @@ impl RISCVInstruction {
             }
             RISCVInstructionType::I => {
                 // 计算 I 型指令格式
-                if self.funct7.is_none() {
+                if self.funct3.is_none() {
+                    let imm = (self.immediate.unwrap() & 0xFFF) << 20;
+                    let rd = ((self.rd.unwrap() & 0x1F) as i64) << 7;
+                    let opcode = (self.opcode & 0x7F) as i64;
+                    (imm | rd | opcode).try_into().unwrap()
+                } else if self.funct7.is_none() {
                     let imm = (self.immediate.unwrap() & 0xFFF) << 20;
                     let rs1 = ((self.rs1.unwrap() & 0x1F) as i64) << 15;
                     let funct3 = ((self.funct3.unwrap() & 0x07) as i64) << 12;
@@ -609,8 +614,7 @@ impl RISCVInstruction {
 
     /// Jump to the address in rs1 + imm and link to rd (typically ra)
     #[inline]
-    pub const fn jalr(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
-        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+    pub const fn jalr(source1: u8, immediate: i64, destination: u8) -> Self {
         Self {
             inst_type: RISCVInstructionType::I,
             opcode: 0x67,
@@ -618,7 +622,35 @@ impl RISCVInstruction {
             funct3: Some(0),
             rs1: Some(source1),
             immediate: Some(immediate),
-            size,
+            size: OperandSize::S64,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// JAl rd,offset   Jump to the address offset and link to rd
+    #[inline]
+    pub const fn jal(offset: i64, destination: u8) -> Self {
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x67,
+            rd: Some(destination),
+            immediate: Some(offset),
+            size: OperandSize::S64,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// return from the subroutine
+    #[inline]
+    pub const fn return_near() -> Self {
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x67,
+            rd: Some(ZERO),
+            funct3: Some(0),
+            rs1: Some(RA),
+            immediate: Some(0),
+            size: OperandSize::S64,
             ..Self::DEFAULT
         }
     }

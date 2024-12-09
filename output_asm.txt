@@ -7,97 +7,97 @@ Disassembly of section .data:
 0000000000000000 <_binary_mov_test_bin_start>:
    0:	06428313          	addi	t1,t0,100
    4:	12346437          	lui	s0,0x12346
-   8:	fff40413          	addi	s0,s0,-1 # 12345fff <_binary_mov_test_bin_end+0x12345e1f>
+   8:	fff40413          	addi	s0,s0,-1 # 12345fff <_binary_mov_test_bin_end+0x12345dc3>
    c:	23460437          	lui	s0,0x23460
-  10:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  10:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   14:	00000437          	lui	s0,0x0
   18:	02041413          	slli	s0,s0,0x20
   1c:	2345f0b7          	lui	ra,0x2345f
-  20:	fff08093          	addi	ra,ra,-1 # 2345efff <_binary_mov_test_bin_end+0x2345ee1f>
+  20:	fff08093          	addi	ra,ra,-1 # 2345efff <_binary_mov_test_bin_end+0x2345edc3>
   24:	00146433          	or	s0,s0,ra
   28:	00100413          	li	s0,1
   2c:	02041413          	slli	s0,s0,0x20
   30:	234600b7          	lui	ra,0x23460
-  34:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  34:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   38:	00146433          	or	s0,s0,ra
   3c:	00100413          	li	s0,1
   40:	02041413          	slli	s0,s0,0x20
   44:	234600b7          	lui	ra,0x23460
-  48:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  48:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   4c:	00146433          	or	s0,s0,ra
   50:	00000413          	li	s0,0
   54:	02041413          	slli	s0,s0,0x20
   58:	234600b7          	lui	ra,0x23460
-  5c:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  5c:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   60:	00146433          	or	s0,s0,ra
   64:	23460437          	lui	s0,0x23460
-  68:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  68:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   6c:	23460437          	lui	s0,0x23460
-  70:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  70:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   74:	00100413          	li	s0,1
   78:	02041413          	slli	s0,s0,0x20
   7c:	234602b7          	lui	t0,0x23460
-  80:	fff28293          	addi	t0,t0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fe1f>
+  80:	fff28293          	addi	t0,t0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
   84:	00546433          	or	s0,s0,t0
   88:	ac6d4437          	lui	s0,0xac6d4
-  8c:	eef40413          	addi	s0,s0,-273 # ffffffffac6d3eef <_binary_mov_test_bin_end+0xffffffffac6d3d0f>
+  8c:	eef40413          	addi	s0,s0,-273 # ffffffffac6d3eef <_binary_mov_test_bin_end+0xffffffffac6d3cb3>
   90:	5393e337          	lui	t1,0x5393e
-  94:	45630313          	addi	t1,t1,1110 # 5393e456 <_binary_mov_test_bin_end+0x5393e276>
+  94:	45630313          	addi	t1,t1,1110 # 5393e456 <_binary_mov_test_bin_end+0x5393e21a>
   98:	00640433          	add	s0,s0,t1
   9c:	63049437          	lui	s0,0x63049
-  a0:	e2340413          	addi	s0,s0,-477 # 63048e23 <_binary_mov_test_bin_end+0x63048c43>
+  a0:	e2340413          	addi	s0,s0,-477 # 63048e23 <_binary_mov_test_bin_end+0x63048be7>
   a4:	9cfea337          	lui	t1,0x9cfea
-  a8:	52230313          	addi	t1,t1,1314 # ffffffff9cfea522 <_binary_mov_test_bin_end+0xffffffff9cfea342>
+  a8:	52230313          	addi	t1,t1,1314 # ffffffff9cfea522 <_binary_mov_test_bin_end+0xffffffff9cfea2e6>
   ac:	00640433          	add	s0,s0,t1
   b0:	00033437          	lui	s0,0x33
-  b4:	34540413          	addi	s0,s0,837 # 33345 <_binary_mov_test_bin_end+0x33165>
+  b4:	34540413          	addi	s0,s0,837 # 33345 <_binary_mov_test_bin_end+0x33109>
   b8:	91b84437          	lui	s0,0x91b84
-  bc:	7ee40413          	addi	s0,s0,2030 # ffffffff91b847ee <_binary_mov_test_bin_end+0xffffffff91b8460e>
+  bc:	7ee40413          	addi	s0,s0,2030 # ffffffff91b847ee <_binary_mov_test_bin_end+0xffffffff91b845b2>
   c0:	00041413          	slli	s0,s0,0x0
   c4:	ab1472b7          	lui	t0,0xab147
-  c8:	3be28293          	addi	t0,t0,958 # ffffffffab1473be <_binary_mov_test_bin_end+0xffffffffab1471de>
+  c8:	3be28293          	addi	t0,t0,958 # ffffffffab1473be <_binary_mov_test_bin_end+0xffffffffab147182>
   cc:	00546433          	or	s0,s0,t0
   d0:	54eb9337          	lui	t1,0x54eb9
-  d4:	c4330313          	addi	t1,t1,-957 # 54eb8c43 <_binary_mov_test_bin_end+0x54eb8a63>
+  d4:	c4330313          	addi	t1,t1,-957 # 54eb8c43 <_binary_mov_test_bin_end+0x54eb8a07>
   d8:	00640433          	add	s0,s0,t1
   dc:	60045413          	0x60045413
   e0:	918dc3b7          	lui	t2,0x918dc
-  e4:	81038393          	addi	t2,t2,-2032 # ffffffff918db810 <_binary_mov_test_bin_end+0xffffffff918db630>
+  e4:	81038393          	addi	t2,t2,-2032 # ffffffff918db810 <_binary_mov_test_bin_end+0xffffffff918db5d4>
   e8:	00740433          	add	s0,s0,t2
   ec:	07d86437          	lui	s0,0x7d86
-  f0:	ae440413          	addi	s0,s0,-1308 # 7d85ae4 <_binary_mov_test_bin_end+0x7d85904>
+  f0:	ae440413          	addi	s0,s0,-1308 # 7d85ae4 <_binary_mov_test_bin_end+0x7d858a8>
   f4:	02041413          	slli	s0,s0,0x20
   f8:	297092b7          	lui	t0,0x29709
-  fc:	72028293          	addi	t0,t0,1824 # 29709720 <_binary_mov_test_bin_end+0x29709540>
+  fc:	72028293          	addi	t0,t0,1824 # 29709720 <_binary_mov_test_bin_end+0x297094e4>
  100:	00546433          	or	s0,s0,t0
  104:	d68f7337          	lui	t1,0xd68f7
- 108:	8e130313          	addi	t1,t1,-1823 # ffffffffd68f68e1 <_binary_mov_test_bin_end+0xffffffffd68f6701>
+ 108:	8e130313          	addi	t1,t1,-1823 # ffffffffd68f68e1 <_binary_mov_test_bin_end+0xffffffffd68f66a5>
  10c:	00640433          	add	s0,s0,t1
  110:	02045413          	srli	s0,s0,0x20
  114:	1b6da3b7          	lui	t2,0x1b6da
- 118:	51b38393          	addi	t2,t2,1307 # 1b6da51b <_binary_mov_test_bin_end+0x1b6da33b>
+ 118:	51b38393          	addi	t2,t2,1307 # 1b6da51b <_binary_mov_test_bin_end+0x1b6da2df>
  11c:	00740433          	add	s0,s0,t2
  120:	971df437          	lui	s0,0x971df
- 124:	01740413          	addi	s0,s0,23 # ffffffff971df017 <_binary_mov_test_bin_end+0xffffffff971dee37>
+ 124:	01740413          	addi	s0,s0,23 # ffffffff971df017 <_binary_mov_test_bin_end+0xffffffff971deddb>
  128:	02041413          	slli	s0,s0,0x20
  12c:	43eb32b7          	lui	t0,0x43eb3
- 130:	68c28293          	addi	t0,t0,1676 # 43eb368c <_binary_mov_test_bin_end+0x43eb34ac>
+ 130:	68c28293          	addi	t0,t0,1676 # 43eb368c <_binary_mov_test_bin_end+0x43eb3450>
  134:	00546433          	or	s0,s0,t0
  138:	bc14d337          	lui	t1,0xbc14d
- 13c:	97530313          	addi	t1,t1,-1675 # ffffffffbc14c975 <_binary_mov_test_bin_end+0xffffffffbc14c795>
+ 13c:	97530313          	addi	t1,t1,-1675 # ffffffffbc14c975 <_binary_mov_test_bin_end+0xffffffffbc14c739>
  140:	00640433          	add	s0,s0,t1
  144:	62045413          	0x62045413
  148:	8c2813b7          	lui	t2,0x8c281
- 14c:	fe838393          	addi	t2,t2,-24 # ffffffff8c280fe8 <_binary_mov_test_bin_end+0xffffffff8c280e08>
+ 14c:	fe838393          	addi	t2,t2,-24 # ffffffff8c280fe8 <_binary_mov_test_bin_end+0xffffffff8c280dac>
  150:	00740433          	add	s0,s0,t2
  154:	05890437          	lui	s0,0x5890
- 158:	58b40413          	addi	s0,s0,1419 # 589058b <_binary_mov_test_bin_end+0x58903ab>
+ 158:	58b40413          	addi	s0,s0,1419 # 589058b <_binary_mov_test_bin_end+0x589034f>
  15c:	02041413          	slli	s0,s0,0x20
  160:	81d3d2b7          	lui	t0,0x81d3d
- 164:	f7a28293          	addi	t0,t0,-134 # ffffffff81d3cf7a <_binary_mov_test_bin_end+0xffffffff81d3cd9a>
+ 164:	f7a28293          	addi	t0,t0,-134 # ffffffff81d3cf7a <_binary_mov_test_bin_end+0xffffffff81d3cd3e>
  168:	00546433          	or	s0,s0,t0
  16c:	7e2c3337          	lui	t1,0x7e2c3
- 170:	08730313          	addi	t1,t1,135 # 7e2c3087 <_binary_mov_test_bin_end+0x7e2c2ea7>
+ 170:	08730313          	addi	t1,t1,135 # 7e2c3087 <_binary_mov_test_bin_end+0x7e2c2e4b>
  174:	00640433          	add	s0,s0,t1
  178:	00040e13          	mv	t3,s0
  17c:	00040e93          	mv	t4,s0
@@ -105,7 +105,7 @@ Disassembly of section .data:
  184:	020ede93          	srli	t4,t4,0x20
  188:	01de6433          	or	s0,t3,t4
  18c:	1dbd03b7          	lui	t2,0x1dbd0
- 190:	a7338393          	addi	t2,t2,-1421 # 1dbcfa73 <_binary_mov_test_bin_end+0x1dbcf893>
+ 190:	a7338393          	addi	t2,t2,-1421 # 1dbcfa73 <_binary_mov_test_bin_end+0x1dbcf837>
  194:	00740433          	add	s0,s0,t2
  198:	00000013          	nop
  19c:	06400413          	li	s0,100
@@ -125,3 +125,26 @@ Disassembly of section .data:
  1d4:	00100593          	li	a1,1
  1d8:	00058093          	mv	ra,a1
  1dc:	97053403          	ld	s0,-1680(a0)
+ 1e0:	d4053103          	ld	sp,-704(a0)
+ 1e4:	00008067          	ret
+ 1e8:	de053f03          	ld	t5,-544(a0)
+ 1ec:	01e0b423          	sd	t5,8(ra)
+ 1f0:	00008093          	mv	ra,ra
+ 1f4:	c9853103          	ld	sp,-872(a0)
+ 1f8:	00008067          	ret
+ 1fc:	d3853f03          	ld	t5,-712(a0)
+ 200:	01e0b423          	sd	t5,8(ra)
+ 204:	00008093          	mv	ra,ra
+ 208:	30053103          	ld	sp,768(a0)
+ 20c:	00008067          	ret
+ 210:	3a053f03          	ld	t5,928(a0)
+ 214:	01e0b423          	sd	t5,8(ra)
+ 218:	00008093          	mv	ra,ra
+ 21c:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+ 220:	00100593          	li	a1,1
+ 224:	00058093          	mv	ra,a1
+ 228:	30853403          	ld	s0,776(a0)
+ 22c:	fe040ee3          	beqz	s0,228 <_binary_mov_test_bin_start+0x228>
+ 230:	fff40413          	addi	s0,s0,-1
+ 234:	30853423          	sd	s0,776(a0)
+ 238:	00008067          	ret

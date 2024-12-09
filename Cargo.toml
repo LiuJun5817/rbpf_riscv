@@ -16,9 +16,6 @@ rustc-demangle = "0.1"
 scroll = "0.11"
 thiserror = "1.0.26"
 
-[target.riscv64gc-unknown-linux-gnu]
-linker = "riscv64-linux-gnu-gcc"
-
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["memoryapi", "sysinfoapi", "winnt", "errhandlingapi"], optional = true }
 

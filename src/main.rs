@@ -102,6 +102,7 @@ fn main() {
         TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
         ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
     );
+
     //emit_ins(RISCVInstruction::addi(OperandSize::S64, 5, 100, 6));
     // load_immediate(OperandSize::S64, 8, 0x12345ffff);
     // if should_sanitize_constant(0x33345) {
