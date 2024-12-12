@@ -576,6 +576,22 @@ impl RISCVInstruction {
         }
     }
 
+    /// BLTU rs1,rs2,offset if (rs1 < rs2) pc += sext(offset)
+    #[inline]
+    pub const fn bltu(size: OperandSize, source1: u8, source2: u8, offset: i64) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::B,
+            opcode: 0x63,
+            funct3: Some(6),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            immediate: Some(offset),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
     /// BGE rs1,rs2,offset if (rs1 >= rs2) pc += sext(offset)
     #[inline]
     pub const fn bge(size: OperandSize, source1: u8, source2: u8, offset: i64) -> Self {
@@ -584,6 +600,22 @@ impl RISCVInstruction {
             inst_type: RISCVInstructionType::B,
             opcode: 0x63,
             funct3: Some(5),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            immediate: Some(offset),
+            size,
+            ..Self::DEFAULT
+        }
+    }
+
+    /// BGEU rs1,rs2,offset if (rs1 >= rs2) pc += sext(offset)
+    #[inline]
+    pub const fn bgeu(size: OperandSize, source1: u8, source2: u8, offset: i64) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::B,
+            opcode: 0x63,
+            funct3: Some(7),
             rs1: Some(source1),
             rs2: Some(source2),
             immediate: Some(offset),
