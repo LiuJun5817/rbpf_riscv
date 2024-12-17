@@ -2,9 +2,10 @@ use crate::{
     ebpf,
     elf::Executable,
     error::{EbpfError, ProgramResult},
+    interpreter::Interpreter,
     memory_region::MemoryMapping,
     program::{BuiltinFunction, BuiltinProgram, FunctionRegistry, SBPFVersion},
-    static_analysis::TraceLogEntry,
+    static_analysis::{Analysis, TraceLogEntry},
 };
 use rand::Rng;
 use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
@@ -79,7 +80,7 @@ impl Default for Config {
             enable_address_translation: true,
             enable_stack_frame_gaps: true,
             instruction_meter_checkpoint_distance: 10000,
-            enable_instruction_meter: true,
+            enable_instruction_meter: true, //改成了 false
             enable_instruction_tracing: false,
             enable_symbol_and_section_labels: false,
             reject_broken_elfs: false,
@@ -170,6 +171,40 @@ impl TestContextObject {
     }
 }
 
+/// Statistic of taken branches (from a recorded trace)
+pub struct DynamicAnalysis {
+    /// Maximal edge counter value
+    pub edge_counter_max: usize,
+    /// src_node, dst_node, edge_counter
+    pub edges: BTreeMap<usize, BTreeMap<usize, usize>>,
+}
+
+impl DynamicAnalysis {
+    /// Accumulates a trace
+    pub fn new(trace_log: &[[u64; 12]], analysis: &Analysis) -> Self {
+        let mut result = Self {
+            edge_counter_max: 0,
+            edges: BTreeMap::new(),
+        };
+        let mut last_basic_block = usize::MAX;
+        for traced_instruction in trace_log.iter() {
+            let pc = traced_instruction[11] as usize;
+            if analysis.cfg_nodes.contains_key(&pc) {
+                let counter = result
+                    .edges
+                    .entry(last_basic_block)
+                    .or_default()
+                    .entry(pc)
+                    .or_insert(0);
+                *counter += 1;
+                result.edge_counter_max = result.edge_counter_max.max(*counter);
+                last_basic_block = pc;
+            }
+        }
+        result
+    }
+}
+
 /// A call frame used for function calls inside the Interpreter
 #[derive(Clone, Default)]
 pub struct CallFrame {
@@ -220,4 +255,127 @@ pub struct EbpfVm<'a, C: ContextObject> {
     /// TCP port for the debugger interface
     #[cfg(feature = "debugger")]
     pub debug_port: Option<u16>,
+}
+
+impl<'a, C: ContextObject> EbpfVm<'a, C> {
+    /// Creates a new virtual machine instance.
+    pub fn new(
+        loader: Arc<BuiltinProgram<C>>,
+        sbpf_version: &SBPFVersion,
+        context_object: &'a mut C,
+        mut memory_mapping: MemoryMapping<'a>,
+        stack_len: usize,
+    ) -> Self {
+        let config = loader.get_config();
+        let stack_pointer =
+            ebpf::MM_STACK_START.saturating_add(if sbpf_version.dynamic_stack_frames() {
+                // the stack is fully descending, frames start as empty and change size anytime r11 is modified
+                stack_len
+            } else {
+                // within a frame the stack grows down, but frames are ascending
+                config.stack_frame_size
+            } as u64);
+        if !config.enable_address_translation {
+            memory_mapping = MemoryMapping::new_identity();
+        }
+        EbpfVm {
+            host_stack_pointer: std::ptr::null_mut(),
+            call_depth: 0,
+            stack_pointer,
+            context_object_pointer: context_object,
+            previous_instruction_meter: 0,
+            due_insn_count: 0,
+            stopwatch_numerator: 0,
+            stopwatch_denominator: 0,
+            registers: [0u64; 12],
+            program_result: ProgramResult::Ok(0),
+            memory_mapping,
+            call_frames: vec![CallFrame::default(); config.max_call_depth],
+            loader,
+            #[cfg(feature = "debugger")]
+            debug_port: None,
+        }
+    }
+
+    /// Execute the program
+    ///
+    /// If interpreted = `false` then the JIT compiled executable is used.
+    pub fn execute_program(
+        &mut self,
+        executable: &Executable<C>,
+        interpreted: bool,
+    ) -> (u64, ProgramResult) {
+        debug_assert!(Arc::ptr_eq(&self.loader, executable.get_loader()));
+        // R1 points to beginning of input memory, R10 to the stack of the first frame, R11 is the pc (hidden)
+        self.registers[1] = ebpf::MM_INPUT_START;
+        self.registers[ebpf::FRAME_PTR_REG] = self.stack_pointer;
+        self.registers[11] = executable.get_entrypoint_instruction_offset() as u64;
+        let config = executable.get_config();
+        let initial_insn_count = if config.enable_instruction_meter {
+            self.context_object_pointer.get_remaining()
+        } else {
+            0
+        };
+        self.previous_instruction_meter = initial_insn_count;
+        self.due_insn_count = 0;
+        self.program_result = ProgramResult::Ok(0);
+        if interpreted {
+            #[cfg(feature = "debugger")]
+            let debug_port = self.debug_port.clone();
+            let mut interpreter = Interpreter::new(self, executable, self.registers);
+            println!("interpreter:{:?}", interpreter.program);
+            #[cfg(feature = "debugger")]
+            if let Some(debug_port) = debug_port {
+                crate::debugger::execute(&mut interpreter, debug_port);
+            } else {
+                while interpreter.step() {}
+            }
+            #[cfg(not(feature = "debugger"))]
+            while interpreter.step() {}
+        } else {
+            // #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+            // {
+            let compiled_program = match executable
+                .get_compiled_program()
+                .ok_or_else(|| EbpfError::JitNotCompiled)
+            {
+                Ok(compiled_program) => compiled_program,
+                Err(error) => return (0, ProgramResult::Err(error)),
+            };
+            println!("compiled_program:{:?}", compiled_program.text_section);
+            compiled_program.invoke(config, self, self.registers);
+            // }
+            // #[cfg(not(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64")))]
+            // {
+            //     return (0, ProgramResult::Err(EbpfError::JitNotCompiled));
+            // }
+            println!("jit编译器开启失败！！！");
+        };
+        let instruction_count = if config.enable_instruction_meter {
+            self.context_object_pointer.consume(self.due_insn_count);
+            initial_insn_count.saturating_sub(self.context_object_pointer.get_remaining())
+        } else {
+            0
+        };
+        let mut result = ProgramResult::Ok(0);
+        std::mem::swap(&mut result, &mut self.program_result);
+        (instruction_count, result)
+    }
+
+    /// Invokes a built-in function
+    pub fn invoke_function(&mut self, function: BuiltinFunction<C>) {
+        function(
+            unsafe {
+                std::ptr::addr_of_mut!(*self)
+                    .cast::<u64>()
+                    .offset(get_runtime_environment_key() as isize)
+                    .cast::<Self>()
+            },
+            self.registers[1],
+            self.registers[2],
+            self.registers[3],
+            self.registers[4],
+            self.registers[5],
+        );
+    }
 }

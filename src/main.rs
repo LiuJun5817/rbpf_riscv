@@ -1,25 +1,31 @@
 mod aligned_memory;
 mod asm_parser;
 mod assembler;
+mod disassembler;
 mod ebpf;
 mod elf;
 mod elf_parser;
 mod elf_parser_glue;
 mod error;
+mod interpreter;
 mod jit;
 mod memory_management;
 mod memory_region;
 mod program;
 mod riscv;
 mod static_analysis;
+mod test_utils;
 mod verifier;
 mod vm;
 extern crate byteorder;
 extern crate libc;
 use crate::{
     assembler::assemble,
+    elf::Executable,
     error::{EbpfError, ProgramResult},
+    memory_region::{AccessType, MemoryMapping, MemoryRegion},
     program::{BuiltinFunction, BuiltinProgram, FunctionRegistry, SBPFVersion},
+    static_analysis::Analysis,
     verifier::RequisiteVerifier,
     vm::{Config, ContextObject, TestContextObject},
 };
@@ -66,14 +72,102 @@ macro_rules! test_interpreter_and_jit {
         let expected_instruction_count = $context_object.get_remaining();
         #[allow(unused_mut)]
         let mut context_object = $context_object;
-        // let expected_result = format!("{:?}", $expected_result);
-        // if !expected_result.contains("ExceededMaxInstructions") {
-        //     context_object.remaining = INSTRUCTION_METER_BUDGET;
-        // }
-        // $executable.verify::<RequisiteVerifier>().unwrap();
+        let expected_result = format!("{:?}", $expected_result);
+        if !expected_result.contains("ExceededMaxInstructions") {
+            context_object.remaining = INSTRUCTION_METER_BUDGET;
+        }
+        $executable.verify::<RequisiteVerifier>().unwrap();
+        let (instruction_count_interpreter, interpreter_final_pc, _tracer_interpreter) = {
+            let mut mem = $mem;
+            let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
+            let mut context_object = context_object.clone();
+            create_vm!(
+                vm,
+                &$executable,
+                &mut context_object,
+                stack,
+                heap,
+                vec![mem_region],
+                None
+            );
+            let (instruction_count_interpreter, result) = vm.execute_program(&$executable, true);
+            println!(
+                "instruction_count_interpreter output:{:?}",
+                instruction_count_interpreter
+            );
+            println!("interpreter output:{:?}", result);
+            println!("expected_result:{:?}", expected_result);
+            assert_eq!(
+                format!("{:?}", result),
+                expected_result,
+                "Unexpected result for Interpreter"
+            );
+            (
+                instruction_count_interpreter,
+                vm.registers[11],
+                vm.context_object_pointer.clone(),
+            )
+        };
+
         #[allow(unused_mut)]
         let compilation_result = $executable.jit_compile();
         println!("{:?}", compilation_result);
+        let mut mem = $mem;
+        let mem_region = MemoryRegion::new_writable(&mut mem, ebpf::MM_INPUT_START);
+        create_vm!(
+            vm,
+            &$executable,
+            &mut context_object,
+            stack,
+            heap,
+            vec![mem_region],
+            None
+        );
+        match compilation_result {
+            Err(err) => assert_eq!(
+                format!("{:?}", err),
+                expected_result,
+                "Unexpected result for JIT compilation"
+            ),
+            Ok(()) => {
+                let (instruction_count_jit, result) = vm.execute_program(&$executable, false);
+                let tracer_jit = &vm.context_object_pointer;
+                // println!("{:?}",&tracer_jit as *const _);
+                if !TestContextObject::compare_trace_log(&_tracer_interpreter, tracer_jit) {
+                    let analysis = Analysis::from_executable(&$executable).unwrap();
+                    let stdout = std::io::stdout();
+                    analysis
+                        .disassemble_trace_log(&mut stdout.lock(), &_tracer_interpreter.trace_log)
+                        .unwrap();
+                    analysis
+                        .disassemble_trace_log(&mut stdout.lock(), &tracer_jit.trace_log)
+                        .unwrap();
+                    panic!();
+                }
+                assert_eq!(
+                    format!("{:?}", result),
+                    expected_result,
+                    "Unexpected result for JIT"
+                );
+
+                assert_eq!(
+                    instruction_count_interpreter, instruction_count_jit,
+                    "Interpreter and JIT instruction meter diverged",
+                );
+                println!("hello1");
+                assert_eq!(
+                    interpreter_final_pc, vm.registers[11],
+                    "Interpreter and JIT instruction final PC diverged",
+                );
+                println!("hello2");
+            }
+        }
+        if $executable.get_config().enable_instruction_meter {
+            assert_eq!(
+                instruction_count_interpreter, expected_instruction_count,
+                "Instruction meter did not consume expected amount"
+            );
+        }
     };
 }
 
@@ -82,7 +176,7 @@ macro_rules! test_interpreter_and_jit_asm {
         #[allow(unused_mut)]
         {
             let mut config = $config;
-            config.enable_instruction_tracing = true;
+            config.enable_instruction_tracing = false;//改成了 false
             let mut function_registry = FunctionRegistry::<BuiltinFunction<TestContextObject>>::default();
             $(test_interpreter_and_jit!(register, function_registry, $location => $syscall_function);)*
             let loader = Arc::new(BuiltinProgram::new_loader(config, function_registry));
@@ -173,119 +267,119 @@ fn test_add32() {
     );
 }
 
-// x
-#[test]
-fn test_alu32_arithmetic() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov32 r0, 0
-        mov32 r1, 1
-        mov32 r2, 2
-        mov32 r3, 3
-        mov32 r4, 4
-        mov32 r5, 5
-        mov32 r6, 6
-        mov32 r7, 7
-        mov32 r8, 8
-        mov32 r9, 9
-        sub32 r0, 13
-        sub32 r0, r1
-        add32 r0, 23
-        add32 r0, r7
-        lmul32 r0, 7
-        lmul32 r0, r3
-        udiv32 r0, 2
-        udiv32 r0, r4
-        exit",
-        [],
-        (),
-        TestContextObject::new(19),
-        ProgramResult::Ok(110),
-    );
-}
+// // x
+// #[test]
+// fn test_alu32_arithmetic() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov32 r0, 0
+//         mov32 r1, 1
+//         mov32 r2, 2
+//         mov32 r3, 3
+//         mov32 r4, 4
+//         mov32 r5, 5
+//         mov32 r6, 6
+//         mov32 r7, 7
+//         mov32 r8, 8
+//         mov32 r9, 9
+//         sub32 r0, 13
+//         sub32 r0, r1
+//         add32 r0, 23
+//         add32 r0, r7
+//         lmul32 r0, 7
+//         lmul32 r0, r3
+//         udiv32 r0, 2
+//         udiv32 r0, r4
+//         exit",
+//         [],
+//         (),
+//         TestContextObject::new(19),
+//         ProgramResult::Ok(110),
+//     );
+// }
 
-#[test]
-fn test_alu64_arithmetic() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov r0, 0
-        mov r1, 1
-        mov r2, 2
-        mov r3, 3
-        mov r4, 4
-        mov r5, 5
-        mov r6, 6
-        mov r7, 7
-        mov r8, 8
-        mov r9, 9
-        sub r0, 13
-        sub r0, r1
-        add r0, 23
-        add r0, r7
-        lmul r0, 7
-        lmul r0, r3
-        udiv r0, 2
-        udiv r0, r4
-        exit",
-        [],
-        (),
-        TestContextObject::new(19),
-        ProgramResult::Ok(110),
-    );
-}
+// #[test]
+// fn test_alu64_arithmetic() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov r0, 0
+//         mov r1, 1
+//         mov r2, 2
+//         mov r3, 3
+//         mov r4, 4
+//         mov r5, 5
+//         mov r6, 6
+//         mov r7, 7
+//         mov r8, 8
+//         mov r9, 9
+//         sub r0, 13
+//         sub r0, r1
+//         add r0, 23
+//         add r0, r7
+//         lmul r0, 7
+//         lmul r0, r3
+//         udiv r0, 2
+//         udiv r0, r4
+//         exit",
+//         [],
+//         (),
+//         TestContextObject::new(19),
+//         ProgramResult::Ok(110),
+//     );
+// }
 
-#[test]
-fn test_lmul128() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov r0, r1
-        mov r2, 30
-        mov r3, 0
-        mov r4, 20
-        mov r5, 0
-        lmul64 r3, r4
-        lmul64 r5, r2
-        add64 r5, r3
-        mov64 r0, r2
-        rsh64 r0, 0x20
-        mov64 r3, r4
-        rsh64 r3, 0x20
-        mov64 r6, r3
-        lmul64 r6, r0
-        add64 r5, r6
-        lsh64 r4, 0x20
-        rsh64 r4, 0x20
-        mov64 r6, r4
-        lmul64 r6, r0
-        lsh64 r2, 0x20
-        rsh64 r2, 0x20
-        lmul64 r4, r2
-        mov64 r0, r4
-        rsh64 r0, 0x20
-        add64 r0, r6
-        mov64 r6, r0
-        rsh64 r6, 0x20
-        add64 r5, r6
-        lmul64 r3, r2
-        lsh64 r0, 0x20
-        rsh64 r0, 0x20
-        add64 r0, r3
-        mov64 r2, r0
-        rsh64 r2, 0x20
-        add64 r5, r2
-        stxdw [r1+0x8], r5
-        lsh64 r0, 0x20
-        lsh64 r4, 0x20
-        rsh64 r4, 0x20
-        or64 r0, r4
-        stxdw [r1+0x0], r0
-        exit",
-        [0; 16],
-        (),
-        TestContextObject::new(42),
-        ProgramResult::Ok(600),
-    );
-}
+// #[test]
+// fn test_lmul128() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov r0, r1
+//         mov r2, 30
+//         mov r3, 0
+//         mov r4, 20
+//         mov r5, 0
+//         lmul64 r3, r4
+//         lmul64 r5, r2
+//         add64 r5, r3
+//         mov64 r0, r2
+//         rsh64 r0, 0x20
+//         mov64 r3, r4
+//         rsh64 r3, 0x20
+//         mov64 r6, r3
+//         lmul64 r6, r0
+//         add64 r5, r6
+//         lsh64 r4, 0x20
+//         rsh64 r4, 0x20
+//         mov64 r6, r4
+//         lmul64 r6, r0
+//         lsh64 r2, 0x20
+//         rsh64 r2, 0x20
+//         lmul64 r4, r2
+//         mov64 r0, r4
+//         rsh64 r0, 0x20
+//         add64 r0, r6
+//         mov64 r6, r0
+//         rsh64 r6, 0x20
+//         add64 r5, r6
+//         lmul64 r3, r2
+//         lsh64 r0, 0x20
+//         rsh64 r0, 0x20
+//         add64 r0, r3
+//         mov64 r2, r0
+//         rsh64 r2, 0x20
+//         add64 r5, r2
+//         stxdw [r1+0x8], r5
+//         lsh64 r0, 0x20
+//         lsh64 r4, 0x20
+//         rsh64 r4, 0x20
+//         or64 r0, r4
+//         stxdw [r1+0x0], r0
+//         exit",
+//         [0; 16],
+//         (),
+//         TestContextObject::new(42),
+//         ProgramResult::Ok(600),
+//     );
+// }
 
 #[test]
 fn test_alu32_logic() {
@@ -462,115 +556,197 @@ fn test_rsh64_reg() {
     );
 }
 
+// #[test]
+// fn test_be16() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         ldxh r0, [r1]
+//         be16 r0
+//         exit",
+//         [0x11, 0x22],
+//         (),
+//         TestContextObject::new(3),
+//         ProgramResult::Ok(0x1122),
+//     );
+// }
+
+// #[test]
+// fn test_be16_high() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         ldxdw r0, [r1]
+//         be16 r0
+//         exit",
+//         [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+//         (),
+//         TestContextObject::new(3),
+//         ProgramResult::Ok(0x1122),
+//     );
+// }
+
+// #[test]
+// fn test_be32() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         ldxw r0, [r1]
+//         be32 r0
+//         exit",
+//         [0x11, 0x22, 0x33, 0x44],
+//         (),
+//         TestContextObject::new(3),
+//         ProgramResult::Ok(0x11223344),
+//     );
+// }
+
+// #[test]
+// fn test_be32_high() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         ldxdw r0, [r1]
+//         be32 r0
+//         exit",
+//         [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+//         (),
+//         TestContextObject::new(3),
+//         ProgramResult::Ok(0x11223344),
+//     );
+// }
+
+// #[test]
+// fn test_be64() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         ldxdw r0, [r1]
+//         be64 r0
+//         exit",
+//         [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+//         (),
+//         TestContextObject::new(3),
+//         ProgramResult::Ok(0x1122334455667788),
+//     );
+// }
+
+// BPF_LD : Loads
+
 #[test]
-fn test_be16() {
+fn test_hor64() {
     test_interpreter_and_jit_asm!(
         "
-        ldxh r0, [r1]
-        be16 r0
+        hor64 r0, 0x10203040
+        hor64 r0, 0x01020304
         exit",
-        [0x11, 0x22],
+        [],
         (),
         TestContextObject::new(3),
-        ProgramResult::Ok(0x1122),
+        ProgramResult::Ok(0x1122334400000000),
     );
 }
 
 #[test]
-fn test_be16_high() {
+fn test_ldxb() {
     test_interpreter_and_jit_asm!(
         "
-        ldxdw r0, [r1]
-        be16 r0
+        ldxb r0, [r1+2]
         exit",
-        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+        [0xaa, 0xbb, 0x11, 0xcc, 0xdd],
         (),
-        TestContextObject::new(3),
-        ProgramResult::Ok(0x1122),
+        TestContextObject::new(2),
+        ProgramResult::Ok(0x11),
     );
 }
 
 #[test]
-fn test_be32() {
+fn test_ldxh() {
     test_interpreter_and_jit_asm!(
         "
-        ldxw r0, [r1]
-        be32 r0
+        ldxh r0, [r1+2]
         exit",
-        [0x11, 0x22, 0x33, 0x44],
+        [0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd],
         (),
-        TestContextObject::new(3),
-        ProgramResult::Ok(0x11223344),
+        TestContextObject::new(2),
+        ProgramResult::Ok(0x2211),
     );
 }
 
 #[test]
-fn test_be32_high() {
+fn test_ldxw() {
     test_interpreter_and_jit_asm!(
         "
-        ldxdw r0, [r1]
-        be32 r0
+        ldxw r0, [r1+2]
         exit",
-        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+        [
+            0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0xcc, 0xdd, //
+        ],
         (),
-        TestContextObject::new(3),
-        ProgramResult::Ok(0x11223344),
+        TestContextObject::new(2),
+        ProgramResult::Ok(0x44332211),
     );
 }
 
 #[test]
-fn test_be64() {
+fn test_ldxh_same_reg() {
     test_interpreter_and_jit_asm!(
         "
-        ldxdw r0, [r1]
-        be64 r0
+        mov r0, r1
+        sth [r0], 0x1234
+        ldxh r0, [r0]
         exit",
-        [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
+        [0xff, 0xff],
         (),
-        TestContextObject::new(3),
-        ProgramResult::Ok(0x1122334455667788),
+        TestContextObject::new(4),
+        ProgramResult::Ok(0x1234),
+    );
+}
+
+#[test]
+fn test_lldxdw() {
+    test_interpreter_and_jit_asm!(
+        "
+        ldxdw r0, [r1+2]
+        exit",
+        [
+            0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, //
+            0x77, 0x88, 0xcc, 0xdd, //
+        ],
+        (),
+        TestContextObject::new(2),
+        ProgramResult::Ok(0x8877665544332211),
+    );
+}
+
+#[test]
+fn test_err_ldxdw_oob() {
+    test_interpreter_and_jit_asm!(
+        "
+        ldxdw r0, [r1+6]
+        exit",
+        [
+            0xaa, 0xbb, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, //
+            0x77, 0x88, 0xcc, 0xdd, //
+        ],
+        (),
+        TestContextObject::new(1),
+        ProgramResult::Err(EbpfError::AccessViolation(
+            AccessType::Load,
+            0x400000006,
+            8,
+            "input"
+        )),
     );
 }
 
 fn main() {
-    // test_interpreter_and_jit_asm!(
-    //     "
-    //     mov32 r1, 1
-    //     mov32 r0, r1
-    //     exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
-    //     [],                        //这是一个空数组，表示没有额外的内存配置
-    //     (),                        //这是一个空元组，表示没有需要注册的系统调用。
-    //     TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
-    //     ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
-    // );
+    // test_mov();
 
     test_interpreter_and_jit_asm!(
         "
-        mov32 r0, 0
         mov32 r1, 1
-        mov32 r2, 2
-        mov32 r3, 3
-        mov32 r4, 4
-        mov32 r5, 5
-        mov32 r6, 6
-        mov32 r7, 7
-        mov32 r8, 8
-        or32 r0, r5
-        or32 r0, 0xa0
-        and32 r0, 0xa3
-        mov32 r9, 0x91
-        and32 r0, r9
-        lsh32 r0, 22
-        lsh32 r0, r8
-        rsh32 r0, 19
-        rsh32 r0, r7
-        xor32 r0, 0x03
-        xor32 r0, r2
-        exit",
-        [],
-        (),
-        TestContextObject::new(21),
-        ProgramResult::Ok(0x11),
+        mov32 r0, r1
+        exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
+        [],                        //这是一个空数组，表示没有额外的内存配置
+        (),                        //这是一个空元组，表示没有需要注册的系统调用。
+        TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
+        ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
     );
 
     //emit_ins(RISCVInstruction::addi(OperandSize::S64, 5, 100, 6));

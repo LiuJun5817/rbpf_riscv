@@ -15,6 +15,7 @@ use crate::{
     error::EbpfError,
     memory_region::MemoryRegion,
     program::{BuiltinProgram, FunctionRegistry, SBPFVersion},
+    verifier::Verifier,
     vm::{Config, ContextObject},
 };
 
@@ -244,10 +245,63 @@ impl<C: ContextObject> Executable<C> {
         )
     }
 
+    /// Get a memory region that can be used to access the merged readonly section
+    pub fn get_ro_region(&self) -> MemoryRegion {
+        get_ro_region(&self.ro_section, self.elf_bytes.as_slice())
+    }
+
+    /// Get the entry point offset into the text section
+    pub fn get_entrypoint_instruction_offset(&self) -> usize {
+        self.entry_pc
+    }
+
+    /// Get the loader built-in program
+    pub fn get_loader(&self) -> &Arc<BuiltinProgram<C>> {
+        &self.loader
+    }
+
+    /// Get the JIT compiled program
+    pub fn get_compiled_program(&self) -> Option<&JitProgram> {
+        self.compiled_program.as_ref()
+    }
+
+    /// Verify the executable
+    pub fn verify<V: Verifier>(&self) -> Result<(), EbpfError> {
+        <V as Verifier>::verify(
+            self.get_text_bytes().1,
+            self.get_config(),
+            self.get_sbpf_version(),
+            self.get_function_registry(),
+        )?;
+        Ok(())
+    }
+
     pub fn jit_compile(&mut self) -> Result<(), crate::error::EbpfError> {
         let jit = JitCompiler::<C>::new(self)?;
         self.compiled_program = Some(jit.compile()?);
+        println!("hello9");
+        println!(
+            "{:?}",
+            self.compiled_program
+                .as_ref()
+                .unwrap()
+                .text_section
+                .as_ptr()
+        );
+        println!("{:?}", self.compiled_program.as_ref().unwrap().text_section);
+        let instructions_dec = &*self.compiled_program.as_ref().unwrap().text_section; // 十进制表示
+
+        // 以十六进制输出
+        println!("机器指令的十六进制表示：");
+        for instr in instructions_dec {
+            print!("{:02x} ", instr); // 每个指令以十六进制格式打印
+        }
         Ok(())
+    }
+
+    /// Get the function registry
+    pub fn get_function_registry(&self) -> &FunctionRegistry<usize> {
+        &self.function_registry
     }
 
     /// Create from raw text section bytes (list of instructions)
@@ -1047,4 +1101,19 @@ impl<C: ContextObject> Executable<C> {
 
         Ok(())
     }
+}
+
+pub(crate) fn get_ro_region(ro_section: &Section, elf: &[u8]) -> MemoryRegion {
+    let (offset, ro_data) = match ro_section {
+        Section::Owned(offset, data) => (*offset, data.as_slice()),
+        Section::Borrowed(offset, byte_range) => (*offset, &elf[byte_range.clone()]),
+    };
+
+    // If offset > 0, the region will start at MM_PROGRAM_START + the offset of
+    // the first read only byte. [MM_PROGRAM_START, MM_PROGRAM_START + offset)
+    // will be unmappable, see MemoryRegion::vm_to_host.
+    MemoryRegion::new_readonly(
+        ro_data,
+        ebpf::MM_PROGRAM_START.saturating_add(offset as u64),
+    )
 }

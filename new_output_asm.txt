@@ -1,0 +1,144 @@
+
+program.elf:     file format elf64-littleriscv
+
+
+Disassembly of section .data:
+
+0000000000000000 <_binary_mov_test_bin_start>:
+   0:	00100593          	li	a1,1
+   4:	00058093          	mv	ra,a1
+   8:	00008067          	ret
+   c:	fff00093          	li	ra,-1
+  10:	00008067          	ret
+  14:	fff00593          	li	a1,-1
+  18:	00058093          	mv	ra,a1
+  1c:	00008067          	ret
+  20:	00100093          	li	ra,1
+  24:	00008913          	mv	s2,ra
+  28:	00090993          	mv	s3,s2
+  2c:	00098a13          	mv	s4,s3
+  30:	000a0a93          	mv	s5,s4
+  34:	000a8093          	mv	ra,s5
+  38:	00008067          	ret
+  3c:	00000093          	li	ra,0
+  40:	00200593          	li	a1,2
+  44:	00100e93          	li	t4,1
+  48:	001e80b3          	add	ra,t4,ra
+  4c:	001580b3          	add	ra,a1,ra
+  50:	00008067          	ret
+  54:	00000093          	li	ra,0
+  58:	00100593          	li	a1,1
+  5c:	00200613          	li	a2,2
+  60:	00300693          	li	a3,3
+  64:	00400713          	li	a4,4
+  68:	00500793          	li	a5,5
+  6c:	00600913          	li	s2,6
+  70:	00700993          	li	s3,7
+  74:	00800a13          	li	s4,8
+  78:	00f0e0b3          	or	ra,ra,a5
+  7c:	0a00e093          	ori	ra,ra,160
+  80:	0a30f093          	andi	ra,ra,163
+  84:	09100a93          	li	s5,145
+  88:	0150f0b3          	and	ra,ra,s5
+  8c:	01609093          	slli	ra,ra,0x16
+  90:	014090b3          	sll	ra,ra,s4
+  94:	0130d093          	srli	ra,ra,0x13
+  98:	0130d0b3          	srl	ra,ra,s3
+  9c:	0030c093          	xori	ra,ra,3
+  a0:	00c0c0b3          	xor	ra,ra,a2
+  a4:	00008067          	ret
+  a8:	00000093          	li	ra,0
+  ac:	00100593          	li	a1,1
+  b0:	00200613          	li	a2,2
+  b4:	00300693          	li	a3,3
+  b8:	00400713          	li	a4,4
+  bc:	00500793          	li	a5,5
+  c0:	00600913          	li	s2,6
+  c4:	00700993          	li	s3,7
+  c8:	00800a13          	li	s4,8
+  cc:	00f0e0b3          	or	ra,ra,a5
+  d0:	0a00e093          	ori	ra,ra,160
+  d4:	0a30f093          	andi	ra,ra,163
+  d8:	09100a93          	li	s5,145
+  dc:	0150f0b3          	and	ra,ra,s5
+  e0:	02009093          	slli	ra,ra,0x20
+  e4:	01609093          	slli	ra,ra,0x16
+  e8:	014090b3          	sll	ra,ra,s4
+  ec:	0200d093          	srli	ra,ra,0x20
+  f0:	0130d093          	srli	ra,ra,0x13
+  f4:	0130d0b3          	srl	ra,ra,s3
+  f8:	0030c093          	xori	ra,ra,3
+  fc:	00c0c0b3          	xor	ra,ra,a2
+ 100:	00008067          	ret
+ 104:	00800093          	li	ra,8
+ 108:	00100593          	li	a1,1
+ 10c:	00800093          	li	ra,8
+ 110:	00100593          	li	a1,1
+ 114:	299f7eb7          	lui	t4,0x299f7
+ 118:	c8ce8e93          	addi	t4,t4,-884 # 299f6c8c <_binary_mov_test_bin_end+0x299f6a68>
+ 11c:	d6609337          	lui	t1,0xd6609
+ 120:	37530313          	addi	t1,t1,885 # ffffffffd6609375 <_binary_mov_test_bin_end+0xffffffffd6609151>
+ 124:	006e8eb3          	add	t4,t4,t1
+ 128:	020e9e93          	slli	t4,t4,0x20
+ 12c:	01d5e5b3          	or	a1,a1,t4
+ 130:	40b0d0b3          	sra	ra,ra,a1
+ 134:	00008067          	ret
+ 138:	0f800093          	li	ra,248
+ 13c:	01c09093          	slli	ra,ra,0x1c
+ 140:	4100d093          	srai	ra,ra,0x10
+ 144:	00008067          	ret
+ 148:	0f800093          	li	ra,248
+ 14c:	01000593          	li	a1,16
+ 150:	01c09093          	slli	ra,ra,0x1c
+ 154:	40b0d0b3          	sra	ra,ra,a1
+ 158:	00008067          	ret
+ 15c:	00100093          	li	ra,1
+ 160:	03f09093          	slli	ra,ra,0x3f
+ 164:	4370d093          	srai	ra,ra,0x37
+ 168:	00500593          	li	a1,5
+ 16c:	40b0d0b3          	sra	ra,ra,a1
+ 170:	00008067          	ret
+ 174:	00100093          	li	ra,1
+ 178:	00400993          	li	s3,4
+ 17c:	013090b3          	sll	ra,ra,s3
+ 180:	00008067          	ret
+ 184:	0010c0b3          	xor	ra,ra,ra
+ 188:	fff00e93          	li	t4,-1
+ 18c:	001e80b3          	add	ra,t4,ra
+ 190:	0080d093          	srli	ra,ra,0x8
+ 194:	00008067          	ret
+ 198:	01000093          	li	ra,16
+ 19c:	00400993          	li	s3,4
+ 1a0:	0130d0b3          	srl	ra,ra,s3
+ 1a4:	00008067          	ret
+ 1a8:	1e782eb7          	lui	t4,0x1e782
+ 1ac:	9d8e8e93          	addi	t4,t4,-1576 # 1e7819d8 <_binary_mov_test_bin_end+0x1e7817b4>
+ 1b0:	f1a81337          	lui	t1,0xf1a81
+ 1b4:	66830313          	addi	t1,t1,1640 # fffffffff1a81668 <_binary_mov_test_bin_end+0xfffffffff1a81444>
+ 1b8:	006e8eb3          	add	t4,t4,t1
+ 1bc:	020e9e93          	slli	t4,t4,0x20
+ 1c0:	01d0e0b3          	or	ra,ra,t4
+ 1c4:	94093eb7          	lui	t4,0x94093
+ 1c8:	68de8e93          	addi	t4,t4,1677 # ffffffff9409368d <_binary_mov_test_bin_end+0xffffffff94093469>
+ 1cc:	6cf8d337          	lui	t1,0x6cf8d
+ 1d0:	c7730313          	addi	t1,t1,-905 # 6cf8cc77 <_binary_mov_test_bin_end+0x6cf8ca53>
+ 1d4:	006e8eb3          	add	t4,t4,t1
+ 1d8:	020e9e93          	slli	t4,t4,0x20
+ 1dc:	01d0e0b3          	or	ra,ra,t4
+ 1e0:	00008067          	ret
+ 1e4:	00258083          	lb	ra,2(a1)
+ 1e8:	00008067          	ret
+ 1ec:	00259083          	lh	ra,2(a1)
+ 1f0:	00008067          	ret
+ 1f4:	0025a083          	lw	ra,2(a1)
+ 1f8:	00008067          	ret
+ 1fc:	00058093          	mv	ra,a1
+ 200:	000012b7          	lui	t0,0x1
+ 204:	23428293          	addi	t0,t0,564 # 1234 <_binary_mov_test_bin_end+0x1010>
+ 208:	00509023          	sh	t0,0(ra)
+ 20c:	00009083          	lh	ra,0(ra)
+ 210:	00008067          	ret
+ 214:	0025b083          	ld	ra,2(a1)
+ 218:	00008067          	ret
+ 21c:	0065b083          	ld	ra,6(a1)
+ 220:	00008067          	ret

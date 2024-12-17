@@ -5,146 +5,1321 @@ program.elf:     file format elf64-littleriscv
 Disassembly of section .data:
 
 0000000000000000 <_binary_mov_test_bin_start>:
-   0:	06428313          	addi	t1,t0,100
-   4:	12346437          	lui	s0,0x12346
-   8:	fff40413          	addi	s0,s0,-1 # 12345fff <_binary_mov_test_bin_end+0x12345dc3>
-   c:	23460437          	lui	s0,0x23460
-  10:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  14:	00000437          	lui	s0,0x0
-  18:	02041413          	slli	s0,s0,0x20
-  1c:	2345f0b7          	lui	ra,0x2345f
-  20:	fff08093          	addi	ra,ra,-1 # 2345efff <_binary_mov_test_bin_end+0x2345edc3>
-  24:	00146433          	or	s0,s0,ra
-  28:	00100413          	li	s0,1
-  2c:	02041413          	slli	s0,s0,0x20
-  30:	234600b7          	lui	ra,0x23460
-  34:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  38:	00146433          	or	s0,s0,ra
-  3c:	00100413          	li	s0,1
-  40:	02041413          	slli	s0,s0,0x20
-  44:	234600b7          	lui	ra,0x23460
-  48:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  4c:	00146433          	or	s0,s0,ra
-  50:	00000413          	li	s0,0
-  54:	02041413          	slli	s0,s0,0x20
-  58:	234600b7          	lui	ra,0x23460
-  5c:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  60:	00146433          	or	s0,s0,ra
-  64:	23460437          	lui	s0,0x23460
-  68:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  6c:	23460437          	lui	s0,0x23460
-  70:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  74:	00100413          	li	s0,1
-  78:	02041413          	slli	s0,s0,0x20
-  7c:	234602b7          	lui	t0,0x23460
-  80:	fff28293          	addi	t0,t0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345fdc3>
-  84:	00546433          	or	s0,s0,t0
-  88:	ac6d4437          	lui	s0,0xac6d4
-  8c:	eef40413          	addi	s0,s0,-273 # ffffffffac6d3eef <_binary_mov_test_bin_end+0xffffffffac6d3cb3>
-  90:	5393e337          	lui	t1,0x5393e
-  94:	45630313          	addi	t1,t1,1110 # 5393e456 <_binary_mov_test_bin_end+0x5393e21a>
-  98:	00640433          	add	s0,s0,t1
-  9c:	63049437          	lui	s0,0x63049
-  a0:	e2340413          	addi	s0,s0,-477 # 63048e23 <_binary_mov_test_bin_end+0x63048be7>
-  a4:	9cfea337          	lui	t1,0x9cfea
-  a8:	52230313          	addi	t1,t1,1314 # ffffffff9cfea522 <_binary_mov_test_bin_end+0xffffffff9cfea2e6>
-  ac:	00640433          	add	s0,s0,t1
-  b0:	00033437          	lui	s0,0x33
-  b4:	34540413          	addi	s0,s0,837 # 33345 <_binary_mov_test_bin_end+0x33109>
-  b8:	91b84437          	lui	s0,0x91b84
-  bc:	7ee40413          	addi	s0,s0,2030 # ffffffff91b847ee <_binary_mov_test_bin_end+0xffffffff91b845b2>
-  c0:	00041413          	slli	s0,s0,0x0
-  c4:	ab1472b7          	lui	t0,0xab147
-  c8:	3be28293          	addi	t0,t0,958 # ffffffffab1473be <_binary_mov_test_bin_end+0xffffffffab147182>
-  cc:	00546433          	or	s0,s0,t0
-  d0:	54eb9337          	lui	t1,0x54eb9
-  d4:	c4330313          	addi	t1,t1,-957 # 54eb8c43 <_binary_mov_test_bin_end+0x54eb8a07>
-  d8:	00640433          	add	s0,s0,t1
-  dc:	60045413          	0x60045413
-  e0:	918dc3b7          	lui	t2,0x918dc
-  e4:	81038393          	addi	t2,t2,-2032 # ffffffff918db810 <_binary_mov_test_bin_end+0xffffffff918db5d4>
-  e8:	00740433          	add	s0,s0,t2
-  ec:	07d86437          	lui	s0,0x7d86
-  f0:	ae440413          	addi	s0,s0,-1308 # 7d85ae4 <_binary_mov_test_bin_end+0x7d858a8>
-  f4:	02041413          	slli	s0,s0,0x20
-  f8:	297092b7          	lui	t0,0x29709
-  fc:	72028293          	addi	t0,t0,1824 # 29709720 <_binary_mov_test_bin_end+0x297094e4>
- 100:	00546433          	or	s0,s0,t0
- 104:	d68f7337          	lui	t1,0xd68f7
- 108:	8e130313          	addi	t1,t1,-1823 # ffffffffd68f68e1 <_binary_mov_test_bin_end+0xffffffffd68f66a5>
- 10c:	00640433          	add	s0,s0,t1
- 110:	02045413          	srli	s0,s0,0x20
- 114:	1b6da3b7          	lui	t2,0x1b6da
- 118:	51b38393          	addi	t2,t2,1307 # 1b6da51b <_binary_mov_test_bin_end+0x1b6da2df>
- 11c:	00740433          	add	s0,s0,t2
- 120:	971df437          	lui	s0,0x971df
- 124:	01740413          	addi	s0,s0,23 # ffffffff971df017 <_binary_mov_test_bin_end+0xffffffff971deddb>
- 128:	02041413          	slli	s0,s0,0x20
- 12c:	43eb32b7          	lui	t0,0x43eb3
- 130:	68c28293          	addi	t0,t0,1676 # 43eb368c <_binary_mov_test_bin_end+0x43eb3450>
- 134:	00546433          	or	s0,s0,t0
- 138:	bc14d337          	lui	t1,0xbc14d
- 13c:	97530313          	addi	t1,t1,-1675 # ffffffffbc14c975 <_binary_mov_test_bin_end+0xffffffffbc14c739>
- 140:	00640433          	add	s0,s0,t1
- 144:	62045413          	0x62045413
- 148:	8c2813b7          	lui	t2,0x8c281
- 14c:	fe838393          	addi	t2,t2,-24 # ffffffff8c280fe8 <_binary_mov_test_bin_end+0xffffffff8c280dac>
- 150:	00740433          	add	s0,s0,t2
- 154:	05890437          	lui	s0,0x5890
- 158:	58b40413          	addi	s0,s0,1419 # 589058b <_binary_mov_test_bin_end+0x589034f>
- 15c:	02041413          	slli	s0,s0,0x20
- 160:	81d3d2b7          	lui	t0,0x81d3d
- 164:	f7a28293          	addi	t0,t0,-134 # ffffffff81d3cf7a <_binary_mov_test_bin_end+0xffffffff81d3cd3e>
- 168:	00546433          	or	s0,s0,t0
- 16c:	7e2c3337          	lui	t1,0x7e2c3
- 170:	08730313          	addi	t1,t1,135 # 7e2c3087 <_binary_mov_test_bin_end+0x7e2c2e4b>
- 174:	00640433          	add	s0,s0,t1
- 178:	00040e13          	mv	t3,s0
- 17c:	00040e93          	mv	t4,s0
- 180:	020e1e13          	slli	t3,t3,0x20
- 184:	020ede93          	srli	t4,t4,0x20
- 188:	01de6433          	or	s0,t3,t4
- 18c:	1dbd03b7          	lui	t2,0x1dbd0
- 190:	a7338393          	addi	t2,t2,-1421 # 1dbcfa73 <_binary_mov_test_bin_end+0x1dbcf837>
- 194:	00740433          	add	s0,s0,t2
- 198:	00000013          	nop
- 19c:	06400413          	li	s0,100
- 1a0:	00300493          	li	s1,3
- 1a4:	40940933          	sub	s2,s0,s1
- 1a8:	009419b3          	sll	s3,s0,s1
- 1ac:	00945a33          	srl	s4,s0,s1
- 1b0:	ff800413          	li	s0,-8
- 1b4:	00300493          	li	s1,3
- 1b8:	40945ab3          	sra	s5,s0,s1
- 1bc:	40345b13          	srai	s6,s0,0x3
- 1c0:	11146b93          	ori	s7,s0,273
- 1c4:	00944c33          	xor	s8,s0,s1
- 1c8:	11144c93          	xori	s9,s0,273
- 1cc:	00947d33          	and	s10,s0,s1
- 1d0:	11147d93          	andi	s11,s0,273
- 1d4:	00100593          	li	a1,1
- 1d8:	00058093          	mv	ra,a1
- 1dc:	97053403          	ld	s0,-1680(a0)
- 1e0:	d4053103          	ld	sp,-704(a0)
- 1e4:	00008067          	ret
- 1e8:	de053f03          	ld	t5,-544(a0)
- 1ec:	01e0b423          	sd	t5,8(ra)
- 1f0:	00008093          	mv	ra,ra
- 1f4:	c9853103          	ld	sp,-872(a0)
- 1f8:	00008067          	ret
- 1fc:	d3853f03          	ld	t5,-712(a0)
- 200:	01e0b423          	sd	t5,8(ra)
- 204:	00008093          	mv	ra,ra
- 208:	30053103          	ld	sp,768(a0)
- 20c:	00008067          	ret
- 210:	3a053f03          	ld	t5,928(a0)
- 214:	01e0b423          	sd	t5,8(ra)
- 218:	00008093          	mv	ra,ra
- 21c:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
- 220:	00100593          	li	a1,1
- 224:	00058093          	mv	ra,a1
- 228:	30853403          	ld	s0,776(a0)
- 22c:	fe040ee3          	beqz	s0,228 <_binary_mov_test_bin_start+0x228>
- 230:	fff40413          	addi	s0,s0,-1
- 234:	30853423          	sd	s0,776(a0)
- 238:	00008067          	ret
+       0:	06428313          	addi	t1,t0,100
+       4:	12346437          	lui	s0,0x12346
+       8:	fff40413          	addi	s0,s0,-1 # 12345fff <_binary_mov_test_bin_end+0x12344b67>
+       c:	23460437          	lui	s0,0x23460
+      10:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      14:	00000437          	lui	s0,0x0
+      18:	02041413          	slli	s0,s0,0x20
+      1c:	2345f0b7          	lui	ra,0x2345f
+      20:	fff08093          	addi	ra,ra,-1 # 2345efff <_binary_mov_test_bin_end+0x2345db67>
+      24:	00146433          	or	s0,s0,ra
+      28:	00100413          	li	s0,1
+      2c:	02041413          	slli	s0,s0,0x20
+      30:	234600b7          	lui	ra,0x23460
+      34:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      38:	00146433          	or	s0,s0,ra
+      3c:	00100413          	li	s0,1
+      40:	02041413          	slli	s0,s0,0x20
+      44:	234600b7          	lui	ra,0x23460
+      48:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      4c:	00146433          	or	s0,s0,ra
+      50:	00000413          	li	s0,0
+      54:	02041413          	slli	s0,s0,0x20
+      58:	234600b7          	lui	ra,0x23460
+      5c:	fff08093          	addi	ra,ra,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      60:	00146433          	or	s0,s0,ra
+      64:	23460437          	lui	s0,0x23460
+      68:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      6c:	23460437          	lui	s0,0x23460
+      70:	fff40413          	addi	s0,s0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      74:	00100413          	li	s0,1
+      78:	02041413          	slli	s0,s0,0x20
+      7c:	234602b7          	lui	t0,0x23460
+      80:	fff28293          	addi	t0,t0,-1 # 2345ffff <_binary_mov_test_bin_end+0x2345eb67>
+      84:	00546433          	or	s0,s0,t0
+      88:	ac6d4437          	lui	s0,0xac6d4
+      8c:	eef40413          	addi	s0,s0,-273 # ffffffffac6d3eef <_binary_mov_test_bin_end+0xffffffffac6d2a57>
+      90:	5393e337          	lui	t1,0x5393e
+      94:	45630313          	addi	t1,t1,1110 # 5393e456 <_binary_mov_test_bin_end+0x5393cfbe>
+      98:	00640433          	add	s0,s0,t1
+      9c:	63049437          	lui	s0,0x63049
+      a0:	e2340413          	addi	s0,s0,-477 # 63048e23 <_binary_mov_test_bin_end+0x6304798b>
+      a4:	9cfea337          	lui	t1,0x9cfea
+      a8:	52230313          	addi	t1,t1,1314 # ffffffff9cfea522 <_binary_mov_test_bin_end+0xffffffff9cfe908a>
+      ac:	00640433          	add	s0,s0,t1
+      b0:	00033437          	lui	s0,0x33
+      b4:	34540413          	addi	s0,s0,837 # 33345 <_binary_mov_test_bin_end+0x31ead>
+      b8:	91b84437          	lui	s0,0x91b84
+      bc:	7ee40413          	addi	s0,s0,2030 # ffffffff91b847ee <_binary_mov_test_bin_end+0xffffffff91b83356>
+      c0:	00041413          	slli	s0,s0,0x0
+      c4:	ab1472b7          	lui	t0,0xab147
+      c8:	3be28293          	addi	t0,t0,958 # ffffffffab1473be <_binary_mov_test_bin_end+0xffffffffab145f26>
+      cc:	00546433          	or	s0,s0,t0
+      d0:	54eb9337          	lui	t1,0x54eb9
+      d4:	c4330313          	addi	t1,t1,-957 # 54eb8c43 <_binary_mov_test_bin_end+0x54eb77ab>
+      d8:	00640433          	add	s0,s0,t1
+      dc:	60045413          	0x60045413
+      e0:	918dc3b7          	lui	t2,0x918dc
+      e4:	81038393          	addi	t2,t2,-2032 # ffffffff918db810 <_binary_mov_test_bin_end+0xffffffff918da378>
+      e8:	00740433          	add	s0,s0,t2
+      ec:	07d86437          	lui	s0,0x7d86
+      f0:	ae440413          	addi	s0,s0,-1308 # 7d85ae4 <_binary_mov_test_bin_end+0x7d8464c>
+      f4:	02041413          	slli	s0,s0,0x20
+      f8:	297092b7          	lui	t0,0x29709
+      fc:	72028293          	addi	t0,t0,1824 # 29709720 <_binary_mov_test_bin_end+0x29708288>
+     100:	00546433          	or	s0,s0,t0
+     104:	d68f7337          	lui	t1,0xd68f7
+     108:	8e130313          	addi	t1,t1,-1823 # ffffffffd68f68e1 <_binary_mov_test_bin_end+0xffffffffd68f5449>
+     10c:	00640433          	add	s0,s0,t1
+     110:	02045413          	srli	s0,s0,0x20
+     114:	1b6da3b7          	lui	t2,0x1b6da
+     118:	51b38393          	addi	t2,t2,1307 # 1b6da51b <_binary_mov_test_bin_end+0x1b6d9083>
+     11c:	00740433          	add	s0,s0,t2
+     120:	971df437          	lui	s0,0x971df
+     124:	01740413          	addi	s0,s0,23 # ffffffff971df017 <_binary_mov_test_bin_end+0xffffffff971ddb7f>
+     128:	02041413          	slli	s0,s0,0x20
+     12c:	43eb32b7          	lui	t0,0x43eb3
+     130:	68c28293          	addi	t0,t0,1676 # 43eb368c <_binary_mov_test_bin_end+0x43eb21f4>
+     134:	00546433          	or	s0,s0,t0
+     138:	bc14d337          	lui	t1,0xbc14d
+     13c:	97530313          	addi	t1,t1,-1675 # ffffffffbc14c975 <_binary_mov_test_bin_end+0xffffffffbc14b4dd>
+     140:	00640433          	add	s0,s0,t1
+     144:	62045413          	0x62045413
+     148:	8c2813b7          	lui	t2,0x8c281
+     14c:	fe838393          	addi	t2,t2,-24 # ffffffff8c280fe8 <_binary_mov_test_bin_end+0xffffffff8c27fb50>
+     150:	00740433          	add	s0,s0,t2
+     154:	05890437          	lui	s0,0x5890
+     158:	58b40413          	addi	s0,s0,1419 # 589058b <_binary_mov_test_bin_end+0x588f0f3>
+     15c:	02041413          	slli	s0,s0,0x20
+     160:	81d3d2b7          	lui	t0,0x81d3d
+     164:	f7a28293          	addi	t0,t0,-134 # ffffffff81d3cf7a <_binary_mov_test_bin_end+0xffffffff81d3bae2>
+     168:	00546433          	or	s0,s0,t0
+     16c:	7e2c3337          	lui	t1,0x7e2c3
+     170:	08730313          	addi	t1,t1,135 # 7e2c3087 <_binary_mov_test_bin_end+0x7e2c1bef>
+     174:	00640433          	add	s0,s0,t1
+     178:	00040e13          	mv	t3,s0
+     17c:	00040e93          	mv	t4,s0
+     180:	020e1e13          	slli	t3,t3,0x20
+     184:	020ede93          	srli	t4,t4,0x20
+     188:	01de6433          	or	s0,t3,t4
+     18c:	1dbd03b7          	lui	t2,0x1dbd0
+     190:	a7338393          	addi	t2,t2,-1421 # 1dbcfa73 <_binary_mov_test_bin_end+0x1dbce5db>
+     194:	00740433          	add	s0,s0,t2
+     198:	00000013          	nop
+     19c:	06400413          	li	s0,100
+     1a0:	00300493          	li	s1,3
+     1a4:	40940933          	sub	s2,s0,s1
+     1a8:	009419b3          	sll	s3,s0,s1
+     1ac:	00945a33          	srl	s4,s0,s1
+     1b0:	ff800413          	li	s0,-8
+     1b4:	00300493          	li	s1,3
+     1b8:	40945ab3          	sra	s5,s0,s1
+     1bc:	40345b13          	srai	s6,s0,0x3
+     1c0:	11146b93          	ori	s7,s0,273
+     1c4:	00944c33          	xor	s8,s0,s1
+     1c8:	11144c93          	xori	s9,s0,273
+     1cc:	00947d33          	and	s10,s0,s1
+     1d0:	11147d93          	andi	s11,s0,273
+     1d4:	00100593          	li	a1,1
+     1d8:	00058093          	mv	ra,a1
+     1dc:	97053403          	ld	s0,-1680(a0)
+     1e0:	d4053103          	ld	sp,-704(a0)
+     1e4:	00008067          	ret
+     1e8:	de053f03          	ld	t5,-544(a0)
+     1ec:	01e0b423          	sd	t5,8(ra)
+     1f0:	00008093          	mv	ra,ra
+     1f4:	c9853103          	ld	sp,-872(a0)
+     1f8:	00008067          	ret
+     1fc:	d3853f03          	ld	t5,-712(a0)
+     200:	01e0b423          	sd	t5,8(ra)
+     204:	00008093          	mv	ra,ra
+     208:	30053103          	ld	sp,768(a0)
+     20c:	00008067          	ret
+     210:	3a053f03          	ld	t5,928(a0)
+     214:	01e0b423          	sd	t5,8(ra)
+     218:	00008093          	mv	ra,ra
+     21c:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     220:	00100593          	li	a1,1
+     224:	00058093          	mv	ra,a1
+     228:	30853403          	ld	s0,776(a0)
+     22c:	fe040ee3          	beqz	s0,228 <_binary_mov_test_bin_start+0x228>
+     230:	fff40413          	addi	s0,s0,-1
+     234:	30853423          	sd	s0,776(a0)
+     238:	00008067          	ret
+     23c:	d4053103          	ld	sp,-704(a0)
+     240:	00008067          	ret
+     244:	de053f03          	ld	t5,-544(a0)
+     248:	01e0b423          	sd	t5,8(ra)
+     24c:	00008093          	mv	ra,ra
+     250:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     254:	00100593          	li	a1,1
+     258:	00058093          	mv	ra,a1
+     25c:	d4853403          	ld	s0,-696(a0)
+     260:	fe040ee3          	beqz	s0,25c <_binary_mov_test_bin_start+0x25c>
+     264:	fff40413          	addi	s0,s0,-1
+     268:	d4853423          	sd	s0,-696(a0)
+     26c:	00008067          	ret
+     270:	03053103          	ld	sp,48(a0)
+     274:	00008067          	ret
+     278:	0d053f03          	ld	t5,208(a0)
+     27c:	01e0b423          	sd	t5,8(ra)
+     280:	00008093          	mv	ra,ra
+     284:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     288:	00100593          	li	a1,1
+     28c:	00058093          	mv	ra,a1
+     290:	03853403          	ld	s0,56(a0)
+     294:	fe040ee3          	beqz	s0,290 <_binary_mov_test_bin_start+0x290>
+     298:	fff40413          	addi	s0,s0,-1
+     29c:	02853c23          	sd	s0,56(a0)
+     2a0:	00008067          	ret
+     2a4:	f4053103          	ld	sp,-192(a0)
+     2a8:	00008067          	ret
+     2ac:	fe053f03          	ld	t5,-32(a0)
+     2b0:	01e0b423          	sd	t5,8(ra)
+     2b4:	00008093          	mv	ra,ra
+     2b8:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     2bc:	00100593          	li	a1,1
+     2c0:	00058093          	mv	ra,a1
+     2c4:	f4853403          	ld	s0,-184(a0)
+     2c8:	fe040ee3          	beqz	s0,2c4 <_binary_mov_test_bin_start+0x2c4>
+     2cc:	fff40413          	addi	s0,s0,-1
+     2d0:	f4853423          	sd	s0,-184(a0)
+     2d4:	00008067          	ret
+     2d8:	91053103          	ld	sp,-1776(a0)
+     2dc:	00008067          	ret
+     2e0:	9b053f03          	ld	t5,-1616(a0)
+     2e4:	01e0b423          	sd	t5,8(ra)
+     2e8:	00008093          	mv	ra,ra
+     2ec:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     2f0:	00100593          	li	a1,1
+     2f4:	00058093          	mv	ra,a1
+     2f8:	91853403          	ld	s0,-1768(a0)
+     2fc:	fe040ee3          	beqz	s0,2f8 <_binary_mov_test_bin_start+0x2f8>
+     300:	fff40413          	addi	s0,s0,-1
+     304:	90853c23          	sd	s0,-1768(a0)
+     308:	00008067          	ret
+     30c:	10853103          	ld	sp,264(a0)
+     310:	00008067          	ret
+     314:	1a853f03          	ld	t5,424(a0)
+     318:	01e0b423          	sd	t5,8(ra)
+     31c:	00008093          	mv	ra,ra
+     320:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     324:	00100593          	li	a1,1
+     328:	00058093          	mv	ra,a1
+     32c:	11053403          	ld	s0,272(a0)
+     330:	fe040ee3          	beqz	s0,32c <_binary_mov_test_bin_start+0x32c>
+     334:	fff40413          	addi	s0,s0,-1
+     338:	10853823          	sd	s0,272(a0)
+     33c:	00008067          	ret
+     340:	a5853103          	ld	sp,-1448(a0)
+     344:	00008067          	ret
+     348:	af853f03          	ld	t5,-1288(a0)
+     34c:	01e0b423          	sd	t5,8(ra)
+     350:	00008093          	mv	ra,ra
+     354:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     358:	00100593          	li	a1,1
+     35c:	00058093          	mv	ra,a1
+     360:	a6053403          	ld	s0,-1440(a0)
+     364:	fe040ee3          	beqz	s0,360 <_binary_mov_test_bin_start+0x360>
+     368:	fff40413          	addi	s0,s0,-1
+     36c:	a6853023          	sd	s0,-1440(a0)
+     370:	00008067          	ret
+     374:	b8853103          	ld	sp,-1144(a0)
+     378:	00008067          	ret
+     37c:	c2853f03          	ld	t5,-984(a0)
+     380:	01e0b423          	sd	t5,8(ra)
+     384:	00008093          	mv	ra,ra
+     388:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     38c:	00100593          	li	a1,1
+     390:	00058093          	mv	ra,a1
+     394:	b9053403          	ld	s0,-1136(a0)
+     398:	fe040ee3          	beqz	s0,394 <_binary_mov_test_bin_start+0x394>
+     39c:	fff40413          	addi	s0,s0,-1
+     3a0:	b8853823          	sd	s0,-1136(a0)
+     3a4:	00008067          	ret
+     3a8:	0e053103          	ld	sp,224(a0)
+     3ac:	00008067          	ret
+     3b0:	18053f03          	ld	t5,384(a0)
+     3b4:	01e0b423          	sd	t5,8(ra)
+     3b8:	00008093          	mv	ra,ra
+     3bc:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     3c0:	00100593          	li	a1,1
+     3c4:	00058093          	mv	ra,a1
+     3c8:	0e853403          	ld	s0,232(a0)
+     3cc:	fe040ee3          	beqz	s0,3c8 <_binary_mov_test_bin_start+0x3c8>
+     3d0:	fff40413          	addi	s0,s0,-1
+     3d4:	0e853423          	sd	s0,232(a0)
+     3d8:	00008067          	ret
+     3dc:	76053103          	ld	sp,1888(a0)
+     3e0:	00008067          	ret
+     3e4:	80053f03          	ld	t5,-2048(a0)
+     3e8:	01e0b423          	sd	t5,8(ra)
+     3ec:	00008093          	mv	ra,ra
+     3f0:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     3f4:	00100593          	li	a1,1
+     3f8:	00058093          	mv	ra,a1
+     3fc:	76853403          	ld	s0,1896(a0)
+     400:	fe040ee3          	beqz	s0,3fc <_binary_mov_test_bin_start+0x3fc>
+     404:	fff40413          	addi	s0,s0,-1
+     408:	76853423          	sd	s0,1896(a0)
+     40c:	00008067          	ret
+     410:	b1853103          	ld	sp,-1256(a0)
+     414:	00008067          	ret
+     418:	bb853f03          	ld	t5,-1096(a0)
+     41c:	01e0b423          	sd	t5,8(ra)
+     420:	00008093          	mv	ra,ra
+     424:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     428:	00100593          	li	a1,1
+     42c:	00058093          	mv	ra,a1
+     430:	b2053403          	ld	s0,-1248(a0)
+     434:	fe040ee3          	beqz	s0,430 <_binary_mov_test_bin_start+0x430>
+     438:	fff40413          	addi	s0,s0,-1
+     43c:	b2853023          	sd	s0,-1248(a0)
+     440:	00008067          	ret
+     444:	c2053103          	ld	sp,-992(a0)
+     448:	00008067          	ret
+     44c:	cc053f03          	ld	t5,-832(a0)
+     450:	01e0b423          	sd	t5,8(ra)
+     454:	00008093          	mv	ra,ra
+     458:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     45c:	00000f93          	li	t6,0
+     460:	fa010113          	addi	sp,sp,-96
+     464:	01f13423          	sd	t6,8(sp)
+     468:	00813423          	sd	s0,8(sp)
+     46c:	01513423          	sd	s5,8(sp)
+     470:	01413423          	sd	s4,8(sp)
+     474:	01313423          	sd	s3,8(sp)
+     478:	01213423          	sd	s2,8(sp)
+     47c:	00f13423          	sd	a5,8(sp)
+     480:	00e13423          	sd	a4,8(sp)
+     484:	00d13423          	sd	a3,8(sp)
+     488:	00c13423          	sd	a2,8(sp)
+     48c:	00b13423          	sd	a1,8(sp)
+     490:	00113423          	sd	ra,8(sp)
+     494:	00010093          	mv	ra,sp
+     498:	fe810113          	addi	sp,sp,-24
+     49c:	f8010113          	addi	sp,sp,-128
+     4a0:	00113423          	sd	ra,8(sp)
+     4a4:	00513423          	sd	t0,8(sp)
+     4a8:	00613423          	sd	t1,8(sp)
+     4ac:	00713423          	sd	t2,8(sp)
+     4b0:	00a13423          	sd	a0,8(sp)
+     4b4:	00b13423          	sd	a1,8(sp)
+     4b8:	00c13423          	sd	a2,8(sp)
+     4bc:	00d13423          	sd	a3,8(sp)
+     4c0:	00e13423          	sd	a4,8(sp)
+     4c4:	00f13423          	sd	a5,8(sp)
+     4c8:	01013423          	sd	a6,8(sp)
+     4cc:	01113423          	sd	a7,8(sp)
+     4d0:	01c13423          	sd	t3,8(sp)
+     4d4:	01d13423          	sd	t4,8(sp)
+     4d8:	01e13423          	sd	t5,8(sp)
+     4dc:	01f13423          	sd	t6,8(sp)
+     4e0:	00008593          	mv	a1,ra
+     4e4:	c5053503          	ld	a0,-944(a0)
+     4e8:	c3853103          	ld	sp,-968(a0)
+     4ec:	00008067          	ret
+     4f0:	cd853f03          	ld	t5,-808(a0)
+     4f4:	01e0b423          	sd	t5,8(ra)
+     4f8:	00008093          	mv	ra,ra
+     4fc:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     500:	00000093          	li	ra,0
+     504:	00100593          	li	a1,1
+     508:	00200613          	li	a2,2
+     50c:	00300693          	li	a3,3
+     510:	00400713          	li	a4,4
+     514:	00500793          	li	a5,5
+     518:	00600913          	li	s2,6
+     51c:	00700993          	li	s3,7
+     520:	00800a13          	li	s4,8
+     524:	00f0e0b3          	or	ra,ra,a5
+     528:	0a00e093          	ori	ra,ra,160
+     52c:	0a30f093          	andi	ra,ra,163
+     530:	09100a93          	li	s5,145
+     534:	0150f0b3          	and	ra,ra,s5
+     538:	01609093          	slli	ra,ra,0x16
+     53c:	014090b3          	sll	ra,ra,s4
+     540:	0130d093          	srli	ra,ra,0x13
+     544:	0130d0b3          	srl	ra,ra,s3
+     548:	0030c093          	xori	ra,ra,3
+     54c:	00c0c0b3          	xor	ra,ra,a2
+     550:	c4053403          	ld	s0,-960(a0)
+     554:	fe040ee3          	beqz	s0,550 <_binary_mov_test_bin_start+0x550>
+     558:	fff40413          	addi	s0,s0,-1
+     55c:	c4853023          	sd	s0,-960(a0)
+     560:	00008067          	ret
+     564:	fa010113          	addi	sp,sp,-96
+     568:	01f13423          	sd	t6,8(sp)
+     56c:	00813423          	sd	s0,8(sp)
+     570:	01513423          	sd	s5,8(sp)
+     574:	01413423          	sd	s4,8(sp)
+     578:	01313423          	sd	s3,8(sp)
+     57c:	01213423          	sd	s2,8(sp)
+     580:	00f13423          	sd	a5,8(sp)
+     584:	00e13423          	sd	a4,8(sp)
+     588:	00d13423          	sd	a3,8(sp)
+     58c:	00c13423          	sd	a2,8(sp)
+     590:	00b13423          	sd	a1,8(sp)
+     594:	00113423          	sd	ra,8(sp)
+     598:	00010093          	mv	ra,sp
+     59c:	fe810113          	addi	sp,sp,-24
+     5a0:	f8010113          	addi	sp,sp,-128
+     5a4:	00113423          	sd	ra,8(sp)
+     5a8:	00513423          	sd	t0,8(sp)
+     5ac:	00613423          	sd	t1,8(sp)
+     5b0:	00713423          	sd	t2,8(sp)
+     5b4:	00a13423          	sd	a0,8(sp)
+     5b8:	00b13423          	sd	a1,8(sp)
+     5bc:	00c13423          	sd	a2,8(sp)
+     5c0:	00d13423          	sd	a3,8(sp)
+     5c4:	00e13423          	sd	a4,8(sp)
+     5c8:	00f13423          	sd	a5,8(sp)
+     5cc:	01013423          	sd	a6,8(sp)
+     5d0:	01113423          	sd	a7,8(sp)
+     5d4:	01c13423          	sd	t3,8(sp)
+     5d8:	01d13423          	sd	t4,8(sp)
+     5dc:	01e13423          	sd	t5,8(sp)
+     5e0:	01f13423          	sd	t6,8(sp)
+     5e4:	00008593          	mv	a1,ra
+     5e8:	d2053503          	ld	a0,-736(a0)
+     5ec:	d0853103          	ld	sp,-760(a0)
+     5f0:	00008067          	ret
+     5f4:	da853f03          	ld	t5,-600(a0)
+     5f8:	01e0b423          	sd	t5,8(ra)
+     5fc:	00008093          	mv	ra,ra
+     600:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     604:	00000093          	li	ra,0
+     608:	00100593          	li	a1,1
+     60c:	00200613          	li	a2,2
+     610:	00300693          	li	a3,3
+     614:	00400713          	li	a4,4
+     618:	00500793          	li	a5,5
+     61c:	00600913          	li	s2,6
+     620:	00700993          	li	s3,7
+     624:	00800a13          	li	s4,8
+     628:	00f0e0b3          	or	ra,ra,a5
+     62c:	0a00e093          	ori	ra,ra,160
+     630:	0a30f093          	andi	ra,ra,163
+     634:	09100a93          	li	s5,145
+     638:	0150f0b3          	and	ra,ra,s5
+     63c:	01609093          	slli	ra,ra,0x16
+     640:	014090b3          	sll	ra,ra,s4
+     644:	0130d093          	srli	ra,ra,0x13
+     648:	0130d0b3          	srl	ra,ra,s3
+     64c:	0030c093          	xori	ra,ra,3
+     650:	00c0c0b3          	xor	ra,ra,a2
+     654:	d1053403          	ld	s0,-752(a0)
+     658:	fe040ee3          	beqz	s0,654 <_binary_mov_test_bin_start+0x654>
+     65c:	fff40413          	addi	s0,s0,-1
+     660:	d0853823          	sd	s0,-752(a0)
+     664:	00008067          	ret
+     668:	fa010113          	addi	sp,sp,-96
+     66c:	01f13423          	sd	t6,8(sp)
+     670:	00813423          	sd	s0,8(sp)
+     674:	01513423          	sd	s5,8(sp)
+     678:	01413423          	sd	s4,8(sp)
+     67c:	01313423          	sd	s3,8(sp)
+     680:	01213423          	sd	s2,8(sp)
+     684:	00f13423          	sd	a5,8(sp)
+     688:	00e13423          	sd	a4,8(sp)
+     68c:	00d13423          	sd	a3,8(sp)
+     690:	00c13423          	sd	a2,8(sp)
+     694:	00b13423          	sd	a1,8(sp)
+     698:	00113423          	sd	ra,8(sp)
+     69c:	00010093          	mv	ra,sp
+     6a0:	fe810113          	addi	sp,sp,-24
+     6a4:	f8010113          	addi	sp,sp,-128
+     6a8:	00113423          	sd	ra,8(sp)
+     6ac:	00513423          	sd	t0,8(sp)
+     6b0:	00613423          	sd	t1,8(sp)
+     6b4:	00713423          	sd	t2,8(sp)
+     6b8:	00a13423          	sd	a0,8(sp)
+     6bc:	00b13423          	sd	a1,8(sp)
+     6c0:	00c13423          	sd	a2,8(sp)
+     6c4:	00d13423          	sd	a3,8(sp)
+     6c8:	00e13423          	sd	a4,8(sp)
+     6cc:	00f13423          	sd	a5,8(sp)
+     6d0:	01013423          	sd	a6,8(sp)
+     6d4:	01113423          	sd	a7,8(sp)
+     6d8:	01c13423          	sd	t3,8(sp)
+     6dc:	01d13423          	sd	t4,8(sp)
+     6e0:	01e13423          	sd	t5,8(sp)
+     6e4:	01f13423          	sd	t6,8(sp)
+     6e8:	00008593          	mv	a1,ra
+     6ec:	e7053503          	ld	a0,-400(a0)
+     6f0:	e5853103          	ld	sp,-424(a0)
+     6f4:	00008067          	ret
+     6f8:	ef853f03          	ld	t5,-264(a0)
+     6fc:	01e0b423          	sd	t5,8(ra)
+     700:	00008093          	mv	ra,ra
+     704:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     708:	fff00093          	li	ra,-1
+     70c:	e6053403          	ld	s0,-416(a0)
+     710:	fe040ee3          	beqz	s0,70c <_binary_mov_test_bin_start+0x70c>
+     714:	fff40413          	addi	s0,s0,-1
+     718:	e6853023          	sd	s0,-416(a0)
+     71c:	00008067          	ret
+     720:	fa010113          	addi	sp,sp,-96
+     724:	01f13423          	sd	t6,8(sp)
+     728:	00813423          	sd	s0,8(sp)
+     72c:	01513423          	sd	s5,8(sp)
+     730:	01413423          	sd	s4,8(sp)
+     734:	01313423          	sd	s3,8(sp)
+     738:	01213423          	sd	s2,8(sp)
+     73c:	00f13423          	sd	a5,8(sp)
+     740:	00e13423          	sd	a4,8(sp)
+     744:	00d13423          	sd	a3,8(sp)
+     748:	00c13423          	sd	a2,8(sp)
+     74c:	00b13423          	sd	a1,8(sp)
+     750:	00113423          	sd	ra,8(sp)
+     754:	00010093          	mv	ra,sp
+     758:	fe810113          	addi	sp,sp,-24
+     75c:	f8010113          	addi	sp,sp,-128
+     760:	00113423          	sd	ra,8(sp)
+     764:	00513423          	sd	t0,8(sp)
+     768:	00613423          	sd	t1,8(sp)
+     76c:	00713423          	sd	t2,8(sp)
+     770:	00a13423          	sd	a0,8(sp)
+     774:	00b13423          	sd	a1,8(sp)
+     778:	00c13423          	sd	a2,8(sp)
+     77c:	00d13423          	sd	a3,8(sp)
+     780:	00e13423          	sd	a4,8(sp)
+     784:	00f13423          	sd	a5,8(sp)
+     788:	01013423          	sd	a6,8(sp)
+     78c:	01113423          	sd	a7,8(sp)
+     790:	01c13423          	sd	t3,8(sp)
+     794:	01d13423          	sd	t4,8(sp)
+     798:	01e13423          	sd	t5,8(sp)
+     79c:	01f13423          	sd	t6,8(sp)
+     7a0:	00008593          	mv	a1,ra
+     7a4:	65053503          	ld	a0,1616(a0)
+     7a8:	63853103          	ld	sp,1592(a0)
+     7ac:	00008067          	ret
+     7b0:	6d853f03          	ld	t5,1752(a0)
+     7b4:	01e0b423          	sd	t5,8(ra)
+     7b8:	00008093          	mv	ra,ra
+     7bc:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     7c0:	fff00593          	li	a1,-1
+     7c4:	00058093          	mv	ra,a1
+     7c8:	64053403          	ld	s0,1600(a0)
+     7cc:	fe040ee3          	beqz	s0,7c8 <_binary_mov_test_bin_start+0x7c8>
+     7d0:	fff40413          	addi	s0,s0,-1
+     7d4:	64853023          	sd	s0,1600(a0)
+     7d8:	00008067          	ret
+     7dc:	fa010113          	addi	sp,sp,-96
+     7e0:	01f13423          	sd	t6,8(sp)
+     7e4:	00813423          	sd	s0,8(sp)
+     7e8:	01513423          	sd	s5,8(sp)
+     7ec:	01413423          	sd	s4,8(sp)
+     7f0:	01313423          	sd	s3,8(sp)
+     7f4:	01213423          	sd	s2,8(sp)
+     7f8:	00f13423          	sd	a5,8(sp)
+     7fc:	00e13423          	sd	a4,8(sp)
+     800:	00d13423          	sd	a3,8(sp)
+     804:	00c13423          	sd	a2,8(sp)
+     808:	00b13423          	sd	a1,8(sp)
+     80c:	00113423          	sd	ra,8(sp)
+     810:	00010093          	mv	ra,sp
+     814:	fe810113          	addi	sp,sp,-24
+     818:	f8010113          	addi	sp,sp,-128
+     81c:	00113423          	sd	ra,8(sp)
+     820:	00513423          	sd	t0,8(sp)
+     824:	00613423          	sd	t1,8(sp)
+     828:	00713423          	sd	t2,8(sp)
+     82c:	00a13423          	sd	a0,8(sp)
+     830:	00b13423          	sd	a1,8(sp)
+     834:	00c13423          	sd	a2,8(sp)
+     838:	00d13423          	sd	a3,8(sp)
+     83c:	00e13423          	sd	a4,8(sp)
+     840:	00f13423          	sd	a5,8(sp)
+     844:	01013423          	sd	a6,8(sp)
+     848:	01113423          	sd	a7,8(sp)
+     84c:	01c13423          	sd	t3,8(sp)
+     850:	01d13423          	sd	t4,8(sp)
+     854:	01e13423          	sd	t5,8(sp)
+     858:	01f13423          	sd	t6,8(sp)
+     85c:	00008593          	mv	a1,ra
+     860:	9b853503          	ld	a0,-1608(a0)
+     864:	9a053103          	ld	sp,-1632(a0)
+     868:	00008067          	ret
+     86c:	a4053f03          	ld	t5,-1472(a0)
+     870:	01e0b423          	sd	t5,8(ra)
+     874:	00008093          	mv	ra,ra
+     878:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     87c:	00100093          	li	ra,1
+     880:	00008913          	mv	s2,ra
+     884:	00090993          	mv	s3,s2
+     888:	00098a13          	mv	s4,s3
+     88c:	000a0a93          	mv	s5,s4
+     890:	000a8093          	mv	ra,s5
+     894:	9a853403          	ld	s0,-1624(a0)
+     898:	fe040ee3          	beqz	s0,894 <_binary_mov_test_bin_start+0x894>
+     89c:	fff40413          	addi	s0,s0,-1
+     8a0:	9a853423          	sd	s0,-1624(a0)
+     8a4:	00008067          	ret
+     8a8:	fa010113          	addi	sp,sp,-96
+     8ac:	01f13423          	sd	t6,8(sp)
+     8b0:	00813423          	sd	s0,8(sp)
+     8b4:	01513423          	sd	s5,8(sp)
+     8b8:	01413423          	sd	s4,8(sp)
+     8bc:	01313423          	sd	s3,8(sp)
+     8c0:	01213423          	sd	s2,8(sp)
+     8c4:	00f13423          	sd	a5,8(sp)
+     8c8:	00e13423          	sd	a4,8(sp)
+     8cc:	00d13423          	sd	a3,8(sp)
+     8d0:	00c13423          	sd	a2,8(sp)
+     8d4:	00b13423          	sd	a1,8(sp)
+     8d8:	00113423          	sd	ra,8(sp)
+     8dc:	00010093          	mv	ra,sp
+     8e0:	fe810113          	addi	sp,sp,-24
+     8e4:	f8010113          	addi	sp,sp,-128
+     8e8:	00113423          	sd	ra,8(sp)
+     8ec:	00513423          	sd	t0,8(sp)
+     8f0:	00613423          	sd	t1,8(sp)
+     8f4:	00713423          	sd	t2,8(sp)
+     8f8:	00a13423          	sd	a0,8(sp)
+     8fc:	00b13423          	sd	a1,8(sp)
+     900:	00c13423          	sd	a2,8(sp)
+     904:	00d13423          	sd	a3,8(sp)
+     908:	00e13423          	sd	a4,8(sp)
+     90c:	00f13423          	sd	a5,8(sp)
+     910:	01013423          	sd	a6,8(sp)
+     914:	01113423          	sd	a7,8(sp)
+     918:	01c13423          	sd	t3,8(sp)
+     91c:	01d13423          	sd	t4,8(sp)
+     920:	01e13423          	sd	t5,8(sp)
+     924:	01f13423          	sd	t6,8(sp)
+     928:	00008593          	mv	a1,ra
+     92c:	92053503          	ld	a0,-1760(a0)
+     930:	90853103          	ld	sp,-1784(a0)
+     934:	00008067          	ret
+     938:	9a853f03          	ld	t5,-1624(a0)
+     93c:	01e0b423          	sd	t5,8(ra)
+     940:	00008093          	mv	ra,ra
+     944:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     948:	00000093          	li	ra,0
+     94c:	00200593          	li	a1,2
+     950:	00100e93          	li	t4,1
+     954:	001e80b3          	add	ra,t4,ra
+     958:	001580b3          	add	ra,a1,ra
+     95c:	91053403          	ld	s0,-1776(a0)
+     960:	fe040ee3          	beqz	s0,95c <_binary_mov_test_bin_start+0x95c>
+     964:	fff40413          	addi	s0,s0,-1
+     968:	90853823          	sd	s0,-1776(a0)
+     96c:	00008067          	ret
+     970:	fa010113          	addi	sp,sp,-96
+     974:	01f13423          	sd	t6,8(sp)
+     978:	00813423          	sd	s0,8(sp)
+     97c:	01513423          	sd	s5,8(sp)
+     980:	01413423          	sd	s4,8(sp)
+     984:	01313423          	sd	s3,8(sp)
+     988:	01213423          	sd	s2,8(sp)
+     98c:	00f13423          	sd	a5,8(sp)
+     990:	00e13423          	sd	a4,8(sp)
+     994:	00d13423          	sd	a3,8(sp)
+     998:	00c13423          	sd	a2,8(sp)
+     99c:	00b13423          	sd	a1,8(sp)
+     9a0:	00113423          	sd	ra,8(sp)
+     9a4:	00010093          	mv	ra,sp
+     9a8:	fe810113          	addi	sp,sp,-24
+     9ac:	f8010113          	addi	sp,sp,-128
+     9b0:	00113423          	sd	ra,8(sp)
+     9b4:	00513423          	sd	t0,8(sp)
+     9b8:	00613423          	sd	t1,8(sp)
+     9bc:	00713423          	sd	t2,8(sp)
+     9c0:	00a13423          	sd	a0,8(sp)
+     9c4:	00b13423          	sd	a1,8(sp)
+     9c8:	00c13423          	sd	a2,8(sp)
+     9cc:	00d13423          	sd	a3,8(sp)
+     9d0:	00e13423          	sd	a4,8(sp)
+     9d4:	00f13423          	sd	a5,8(sp)
+     9d8:	01013423          	sd	a6,8(sp)
+     9dc:	01113423          	sd	a7,8(sp)
+     9e0:	01c13423          	sd	t3,8(sp)
+     9e4:	01d13423          	sd	t4,8(sp)
+     9e8:	01e13423          	sd	t5,8(sp)
+     9ec:	01f13423          	sd	t6,8(sp)
+     9f0:	00008593          	mv	a1,ra
+     9f4:	48053503          	ld	a0,1152(a0)
+     9f8:	46853103          	ld	sp,1128(a0)
+     9fc:	00008067          	ret
+     a00:	50853f03          	ld	t5,1288(a0)
+     a04:	01e0b423          	sd	t5,8(ra)
+     a08:	00008093          	mv	ra,ra
+     a0c:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     a10:	00000093          	li	ra,0
+     a14:	00100593          	li	a1,1
+     a18:	00200613          	li	a2,2
+     a1c:	00300693          	li	a3,3
+     a20:	00400713          	li	a4,4
+     a24:	00500793          	li	a5,5
+     a28:	00600913          	li	s2,6
+     a2c:	00700993          	li	s3,7
+     a30:	00800a13          	li	s4,8
+     a34:	00900a93          	li	s5,9
+     a38:	401000b3          	neg	ra,ra
+     a3c:	00d00e93          	li	t4,13
+     a40:	001e80b3          	add	ra,t4,ra
+     a44:	40b080b3          	sub	ra,ra,a1
+     a48:	01700e93          	li	t4,23
+     a4c:	001e80b3          	add	ra,t4,ra
+     a50:	001980b3          	add	ra,s3,ra
+     a54:	fa010113          	addi	sp,sp,-96
+     a58:	01f13423          	sd	t6,8(sp)
+     a5c:	00813423          	sd	s0,8(sp)
+     a60:	01513423          	sd	s5,8(sp)
+     a64:	01413423          	sd	s4,8(sp)
+     a68:	01313423          	sd	s3,8(sp)
+     a6c:	01213423          	sd	s2,8(sp)
+     a70:	00f13423          	sd	a5,8(sp)
+     a74:	00e13423          	sd	a4,8(sp)
+     a78:	00d13423          	sd	a3,8(sp)
+     a7c:	00c13423          	sd	a2,8(sp)
+     a80:	00b13423          	sd	a1,8(sp)
+     a84:	00113423          	sd	ra,8(sp)
+     a88:	00010093          	mv	ra,sp
+     a8c:	fe810113          	addi	sp,sp,-24
+     a90:	f8010113          	addi	sp,sp,-128
+     a94:	00113423          	sd	ra,8(sp)
+     a98:	00513423          	sd	t0,8(sp)
+     a9c:	00613423          	sd	t1,8(sp)
+     aa0:	00713423          	sd	t2,8(sp)
+     aa4:	00a13423          	sd	a0,8(sp)
+     aa8:	00b13423          	sd	a1,8(sp)
+     aac:	00c13423          	sd	a2,8(sp)
+     ab0:	00d13423          	sd	a3,8(sp)
+     ab4:	00e13423          	sd	a4,8(sp)
+     ab8:	00f13423          	sd	a5,8(sp)
+     abc:	01013423          	sd	a6,8(sp)
+     ac0:	01113423          	sd	a7,8(sp)
+     ac4:	01c13423          	sd	t3,8(sp)
+     ac8:	01d13423          	sd	t4,8(sp)
+     acc:	01e13423          	sd	t5,8(sp)
+     ad0:	01f13423          	sd	t6,8(sp)
+     ad4:	00008593          	mv	a1,ra
+     ad8:	a0053503          	ld	a0,-1536(a0)
+     adc:	9e853103          	ld	sp,-1560(a0)
+     ae0:	00008067          	ret
+     ae4:	a8853f03          	ld	t5,-1400(a0)
+     ae8:	01e0b423          	sd	t5,8(ra)
+     aec:	00008093          	mv	ra,ra
+     af0:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     af4:	00100593          	li	a1,1
+     af8:	00058093          	mv	ra,a1
+     afc:	9f053403          	ld	s0,-1552(a0)
+     b00:	fe040ee3          	beqz	s0,afc <_binary_mov_test_bin_start+0xafc>
+     b04:	fff40413          	addi	s0,s0,-1
+     b08:	9e853823          	sd	s0,-1552(a0)
+     b0c:	00008067          	ret
+     b10:	fa010113          	addi	sp,sp,-96
+     b14:	01f13423          	sd	t6,8(sp)
+     b18:	00813423          	sd	s0,8(sp)
+     b1c:	01513423          	sd	s5,8(sp)
+     b20:	01413423          	sd	s4,8(sp)
+     b24:	01313423          	sd	s3,8(sp)
+     b28:	01213423          	sd	s2,8(sp)
+     b2c:	00f13423          	sd	a5,8(sp)
+     b30:	00e13423          	sd	a4,8(sp)
+     b34:	00d13423          	sd	a3,8(sp)
+     b38:	00c13423          	sd	a2,8(sp)
+     b3c:	00b13423          	sd	a1,8(sp)
+     b40:	00113423          	sd	ra,8(sp)
+     b44:	00010093          	mv	ra,sp
+     b48:	fe810113          	addi	sp,sp,-24
+     b4c:	f8010113          	addi	sp,sp,-128
+     b50:	00113423          	sd	ra,8(sp)
+     b54:	00513423          	sd	t0,8(sp)
+     b58:	00613423          	sd	t1,8(sp)
+     b5c:	00713423          	sd	t2,8(sp)
+     b60:	00a13423          	sd	a0,8(sp)
+     b64:	00b13423          	sd	a1,8(sp)
+     b68:	00c13423          	sd	a2,8(sp)
+     b6c:	00d13423          	sd	a3,8(sp)
+     b70:	00e13423          	sd	a4,8(sp)
+     b74:	00f13423          	sd	a5,8(sp)
+     b78:	01013423          	sd	a6,8(sp)
+     b7c:	01113423          	sd	a7,8(sp)
+     b80:	01c13423          	sd	t3,8(sp)
+     b84:	01d13423          	sd	t4,8(sp)
+     b88:	01e13423          	sd	t5,8(sp)
+     b8c:	01f13423          	sd	t6,8(sp)
+     b90:	00008593          	mv	a1,ra
+     b94:	000050b7          	lui	ra,0x5
+     b98:	5e508093          	addi	ra,ra,1509 # 55e5 <_binary_mov_test_bin_end+0x414d>
+     b9c:	02009093          	slli	ra,ra,0x20
+     ba0:	2bb572b7          	lui	t0,0x2bb57
+     ba4:	d3028293          	addi	t0,t0,-720 # 2bb56d30 <_binary_mov_test_bin_end+0x2bb55898>
+     ba8:	0050e0b3          	or	ra,ra,t0
+     bac:	000080e7          	jalr	ra
+     bb0:	c5853503          	ld	a0,-936(a0)
+     bb4:	000050b7          	lui	ra,0x5
+     bb8:	5e508093          	addi	ra,ra,1509 # 55e5 <_binary_mov_test_bin_end+0x414d>
+     bbc:	02009093          	slli	ra,ra,0x20
+     bc0:	2bb572b7          	lui	t0,0x2bb57
+     bc4:	d3028293          	addi	t0,t0,-720 # 2bb56d30 <_binary_mov_test_bin_end+0x2bb55898>
+     bc8:	0050e0b3          	or	ra,ra,t0
+     bcc:	000080e7          	jalr	ra
+     bd0:	c4053103          	ld	sp,-960(a0)
+     bd4:	00008067          	ret
+     bd8:	ce053f03          	ld	t5,-800(a0)
+     bdc:	01e0b423          	sd	t5,8(ra)
+     be0:	00008093          	mv	ra,ra
+     be4:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     be8:	00100593          	li	a1,1
+     bec:	00058093          	mv	ra,a1
+     bf0:	c4853403          	ld	s0,-952(a0)
+     bf4:	fe040ee3          	beqz	s0,bf0 <_binary_mov_test_bin_start+0xbf0>
+     bf8:	fff40413          	addi	s0,s0,-1
+     bfc:	c4853423          	sd	s0,-952(a0)
+     c00:	00008067          	ret
+     c04:	fa010113          	addi	sp,sp,-96
+     c08:	01f13423          	sd	t6,8(sp)
+     c0c:	00813423          	sd	s0,8(sp)
+     c10:	01513423          	sd	s5,8(sp)
+     c14:	01413423          	sd	s4,8(sp)
+     c18:	01313423          	sd	s3,8(sp)
+     c1c:	01213423          	sd	s2,8(sp)
+     c20:	00f13423          	sd	a5,8(sp)
+     c24:	00e13423          	sd	a4,8(sp)
+     c28:	00d13423          	sd	a3,8(sp)
+     c2c:	00c13423          	sd	a2,8(sp)
+     c30:	00b13423          	sd	a1,8(sp)
+     c34:	00113423          	sd	ra,8(sp)
+     c38:	00010093          	mv	ra,sp
+     c3c:	fe810113          	addi	sp,sp,-24
+     c40:	f8010113          	addi	sp,sp,-128
+     c44:	00113423          	sd	ra,8(sp)
+     c48:	00513423          	sd	t0,8(sp)
+     c4c:	00613423          	sd	t1,8(sp)
+     c50:	00713423          	sd	t2,8(sp)
+     c54:	00a13423          	sd	a0,8(sp)
+     c58:	00b13423          	sd	a1,8(sp)
+     c5c:	00c13423          	sd	a2,8(sp)
+     c60:	00d13423          	sd	a3,8(sp)
+     c64:	00e13423          	sd	a4,8(sp)
+     c68:	00f13423          	sd	a5,8(sp)
+     c6c:	01013423          	sd	a6,8(sp)
+     c70:	01113423          	sd	a7,8(sp)
+     c74:	01c13423          	sd	t3,8(sp)
+     c78:	01d13423          	sd	t4,8(sp)
+     c7c:	01e13423          	sd	t5,8(sp)
+     c80:	01f13423          	sd	t6,8(sp)
+     c84:	00008593          	mv	a1,ra
+     c88:	000050b7          	lui	ra,0x5
+     c8c:	57308093          	addi	ra,ra,1395 # 5573 <_binary_mov_test_bin_end+0x40db>
+     c90:	02009093          	slli	ra,ra,0x20
+     c94:	9ab1b2b7          	lui	t0,0x9ab1b
+     c98:	0f028293          	addi	t0,t0,240 # ffffffff9ab1b0f0 <_binary_mov_test_bin_end+0xffffffff9ab19c58>
+     c9c:	0050e0b3          	or	ra,ra,t0
+     ca0:	000080e7          	jalr	ra
+     ca4:	fa853503          	ld	a0,-88(a0)
+     ca8:	000050b7          	lui	ra,0x5
+     cac:	57308093          	addi	ra,ra,1395 # 5573 <_binary_mov_test_bin_end+0x40db>
+     cb0:	02009093          	slli	ra,ra,0x20
+     cb4:	9ab1b2b7          	lui	t0,0x9ab1b
+     cb8:	0f028293          	addi	t0,t0,240 # ffffffff9ab1b0f0 <_binary_mov_test_bin_end+0xffffffff9ab19c58>
+     cbc:	0050e0b3          	or	ra,ra,t0
+     cc0:	000080e7          	jalr	ra
+     cc4:	f9053103          	ld	sp,-112(a0)
+     cc8:	00008067          	ret
+     ccc:	03053f03          	ld	t5,48(a0)
+     cd0:	01e0b423          	sd	t5,8(ra)
+     cd4:	00008093          	mv	ra,ra
+     cd8:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     cdc:	00100593          	li	a1,1
+     ce0:	00058093          	mv	ra,a1
+     ce4:	f9853403          	ld	s0,-104(a0)
+     ce8:	fe040ee3          	beqz	s0,ce4 <_binary_mov_test_bin_start+0xce4>
+     cec:	fff40413          	addi	s0,s0,-1
+     cf0:	f8853c23          	sd	s0,-104(a0)
+     cf4:	00008067          	ret
+     cf8:	fa010113          	addi	sp,sp,-96
+     cfc:	01f13423          	sd	t6,8(sp)
+     d00:	00813423          	sd	s0,8(sp)
+     d04:	01513423          	sd	s5,8(sp)
+     d08:	01413423          	sd	s4,8(sp)
+     d0c:	01313423          	sd	s3,8(sp)
+     d10:	01213423          	sd	s2,8(sp)
+     d14:	00f13423          	sd	a5,8(sp)
+     d18:	00e13423          	sd	a4,8(sp)
+     d1c:	00d13423          	sd	a3,8(sp)
+     d20:	00c13423          	sd	a2,8(sp)
+     d24:	00b13423          	sd	a1,8(sp)
+     d28:	00113423          	sd	ra,8(sp)
+     d2c:	00010093          	mv	ra,sp
+     d30:	fe810113          	addi	sp,sp,-24
+     d34:	f8010113          	addi	sp,sp,-128
+     d38:	00113423          	sd	ra,8(sp)
+     d3c:	00513423          	sd	t0,8(sp)
+     d40:	00613423          	sd	t1,8(sp)
+     d44:	00713423          	sd	t2,8(sp)
+     d48:	00a13423          	sd	a0,8(sp)
+     d4c:	00b13423          	sd	a1,8(sp)
+     d50:	00c13423          	sd	a2,8(sp)
+     d54:	00d13423          	sd	a3,8(sp)
+     d58:	00e13423          	sd	a4,8(sp)
+     d5c:	00f13423          	sd	a5,8(sp)
+     d60:	01013423          	sd	a6,8(sp)
+     d64:	01113423          	sd	a7,8(sp)
+     d68:	01c13423          	sd	t3,8(sp)
+     d6c:	01d13423          	sd	t4,8(sp)
+     d70:	01e13423          	sd	t5,8(sp)
+     d74:	01f13423          	sd	t6,8(sp)
+     d78:	00008593          	mv	a1,ra
+     d7c:	000050b7          	lui	ra,0x5
+     d80:	60008093          	addi	ra,ra,1536 # 5600 <_binary_mov_test_bin_end+0x4168>
+     d84:	02009093          	slli	ra,ra,0x20
+     d88:	709e82b7          	lui	t0,0x709e8
+     d8c:	1b028293          	addi	t0,t0,432 # 709e81b0 <_binary_mov_test_bin_end+0x709e6d18>
+     d90:	0050e0b3          	or	ra,ra,t0
+     d94:	000080e7          	jalr	ra
+     d98:	f5053503          	ld	a0,-176(a0)
+     d9c:	000050b7          	lui	ra,0x5
+     da0:	60008093          	addi	ra,ra,1536 # 5600 <_binary_mov_test_bin_end+0x4168>
+     da4:	02009093          	slli	ra,ra,0x20
+     da8:	709e82b7          	lui	t0,0x709e8
+     dac:	1b028293          	addi	t0,t0,432 # 709e81b0 <_binary_mov_test_bin_end+0x709e6d18>
+     db0:	0050e0b3          	or	ra,ra,t0
+     db4:	000080e7          	jalr	ra
+     db8:	f3853103          	ld	sp,-200(a0)
+     dbc:	00008067          	ret
+     dc0:	fd853f03          	ld	t5,-40(a0)
+     dc4:	01e0b423          	sd	t5,8(ra)
+     dc8:	00008093          	mv	ra,ra
+     dcc:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     dd0:	00100593          	li	a1,1
+     dd4:	00058093          	mv	ra,a1
+     dd8:	f4053403          	ld	s0,-192(a0)
+     ddc:	fe040ee3          	beqz	s0,dd8 <_binary_mov_test_bin_start+0xdd8>
+     de0:	fff40413          	addi	s0,s0,-1
+     de4:	f4853023          	sd	s0,-192(a0)
+     de8:	00008067          	ret
+     dec:	fa010113          	addi	sp,sp,-96
+     df0:	01f13423          	sd	t6,8(sp)
+     df4:	00813423          	sd	s0,8(sp)
+     df8:	01513423          	sd	s5,8(sp)
+     dfc:	01413423          	sd	s4,8(sp)
+     e00:	01313423          	sd	s3,8(sp)
+     e04:	01213423          	sd	s2,8(sp)
+     e08:	00f13423          	sd	a5,8(sp)
+     e0c:	00e13423          	sd	a4,8(sp)
+     e10:	00d13423          	sd	a3,8(sp)
+     e14:	00c13423          	sd	a2,8(sp)
+     e18:	00b13423          	sd	a1,8(sp)
+     e1c:	00113423          	sd	ra,8(sp)
+     e20:	00010093          	mv	ra,sp
+     e24:	fe810113          	addi	sp,sp,-24
+     e28:	f8010113          	addi	sp,sp,-128
+     e2c:	00113423          	sd	ra,8(sp)
+     e30:	00513423          	sd	t0,8(sp)
+     e34:	00613423          	sd	t1,8(sp)
+     e38:	00713423          	sd	t2,8(sp)
+     e3c:	00a13423          	sd	a0,8(sp)
+     e40:	00b13423          	sd	a1,8(sp)
+     e44:	00c13423          	sd	a2,8(sp)
+     e48:	00d13423          	sd	a3,8(sp)
+     e4c:	00e13423          	sd	a4,8(sp)
+     e50:	00f13423          	sd	a5,8(sp)
+     e54:	01013423          	sd	a6,8(sp)
+     e58:	01113423          	sd	a7,8(sp)
+     e5c:	01c13423          	sd	t3,8(sp)
+     e60:	01d13423          	sd	t4,8(sp)
+     e64:	01e13423          	sd	t5,8(sp)
+     e68:	01f13423          	sd	t6,8(sp)
+     e6c:	00008593          	mv	a1,ra
+     e70:	000050b7          	lui	ra,0x5
+     e74:	5a608093          	addi	ra,ra,1446 # 55a6 <_binary_mov_test_bin_end+0x410e>
+     e78:	02009093          	slli	ra,ra,0x20
+     e7c:	6fe6a2b7          	lui	t0,0x6fe6a
+     e80:	43028293          	addi	t0,t0,1072 # 6fe6a430 <_binary_mov_test_bin_end+0x6fe68f98>
+     e84:	0050e0b3          	or	ra,ra,t0
+     e88:	000080e7          	jalr	ra
+     e8c:	76853503          	ld	a0,1896(a0)
+     e90:	000050b7          	lui	ra,0x5
+     e94:	5a608093          	addi	ra,ra,1446 # 55a6 <_binary_mov_test_bin_end+0x410e>
+     e98:	02009093          	slli	ra,ra,0x20
+     e9c:	6fe6a2b7          	lui	t0,0x6fe6a
+     ea0:	43028293          	addi	t0,t0,1072 # 6fe6a430 <_binary_mov_test_bin_end+0x6fe68f98>
+     ea4:	0050e0b3          	or	ra,ra,t0
+     ea8:	000080e7          	jalr	ra
+     eac:	75053103          	ld	sp,1872(a0)
+     eb0:	00008067          	ret
+     eb4:	7f053f03          	ld	t5,2032(a0)
+     eb8:	01e0b423          	sd	t5,8(ra)
+     ebc:	00008093          	mv	ra,ra
+     ec0:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     ec4:	00100593          	li	a1,1
+     ec8:	00058093          	mv	ra,a1
+     ecc:	75853403          	ld	s0,1880(a0)
+     ed0:	fe040ee3          	beqz	s0,ecc <_binary_mov_test_bin_start+0xecc>
+     ed4:	fff40413          	addi	s0,s0,-1
+     ed8:	74853c23          	sd	s0,1880(a0)
+     edc:	00008067          	ret
+     ee0:	fa010113          	addi	sp,sp,-96
+     ee4:	01f13423          	sd	t6,8(sp)
+     ee8:	00813423          	sd	s0,8(sp)
+     eec:	01513423          	sd	s5,8(sp)
+     ef0:	01413423          	sd	s4,8(sp)
+     ef4:	01313423          	sd	s3,8(sp)
+     ef8:	01213423          	sd	s2,8(sp)
+     efc:	00f13423          	sd	a5,8(sp)
+     f00:	00e13423          	sd	a4,8(sp)
+     f04:	00d13423          	sd	a3,8(sp)
+     f08:	00c13423          	sd	a2,8(sp)
+     f0c:	00b13423          	sd	a1,8(sp)
+     f10:	00113423          	sd	ra,8(sp)
+     f14:	00010093          	mv	ra,sp
+     f18:	fe810113          	addi	sp,sp,-24
+     f1c:	f8010113          	addi	sp,sp,-128
+     f20:	00113423          	sd	ra,8(sp)
+     f24:	00513423          	sd	t0,8(sp)
+     f28:	00613423          	sd	t1,8(sp)
+     f2c:	00713423          	sd	t2,8(sp)
+     f30:	00a13423          	sd	a0,8(sp)
+     f34:	00b13423          	sd	a1,8(sp)
+     f38:	00c13423          	sd	a2,8(sp)
+     f3c:	00d13423          	sd	a3,8(sp)
+     f40:	00e13423          	sd	a4,8(sp)
+     f44:	00f13423          	sd	a5,8(sp)
+     f48:	01013423          	sd	a6,8(sp)
+     f4c:	01113423          	sd	a7,8(sp)
+     f50:	01c13423          	sd	t3,8(sp)
+     f54:	01d13423          	sd	t4,8(sp)
+     f58:	01e13423          	sd	t5,8(sp)
+     f5c:	01f13423          	sd	t6,8(sp)
+     f60:	00008593          	mv	a1,ra
+     f64:	000050b7          	lui	ra,0x5
+     f68:	56d08093          	addi	ra,ra,1389 # 556d <_binary_mov_test_bin_end+0x40d5>
+     f6c:	02009093          	slli	ra,ra,0x20
+     f70:	f007e2b7          	lui	t0,0xf007e
+     f74:	33028293          	addi	t0,t0,816 # fffffffff007e330 <_binary_mov_test_bin_end+0xfffffffff007ce98>
+     f78:	0050e0b3          	or	ra,ra,t0
+     f7c:	000080e7          	jalr	ra
+     f80:	72053503          	ld	a0,1824(a0)
+     f84:	000050b7          	lui	ra,0x5
+     f88:	56d08093          	addi	ra,ra,1389 # 556d <_binary_mov_test_bin_end+0x40d5>
+     f8c:	02009093          	slli	ra,ra,0x20
+     f90:	f007e2b7          	lui	t0,0xf007e
+     f94:	33028293          	addi	t0,t0,816 # fffffffff007e330 <_binary_mov_test_bin_end+0xfffffffff007ce98>
+     f98:	0050e0b3          	or	ra,ra,t0
+     f9c:	000080e7          	jalr	ra
+     fa0:	70853103          	ld	sp,1800(a0)
+     fa4:	00008067          	ret
+     fa8:	7a853f03          	ld	t5,1960(a0)
+     fac:	01e0b423          	sd	t5,8(ra)
+     fb0:	00008093          	mv	ra,ra
+     fb4:	ffc00067          	jr	-4(zero) # 0 <_binary_mov_test_bin_start>
+     fb8:	00100593          	li	a1,1
+     fbc:	00058093          	mv	ra,a1
+     fc0:	71053403          	ld	s0,1808(a0)
+     fc4:	fe040ee3          	beqz	s0,fc0 <_binary_mov_test_bin_start+0xfc0>
+     fc8:	fff40413          	addi	s0,s0,-1
+     fcc:	70853823          	sd	s0,1808(a0)
+     fd0:	00008067          	ret
+     fd4:	fa010113          	addi	sp,sp,-96
+     fd8:	01f13423          	sd	t6,8(sp)
+     fdc:	00813423          	sd	s0,8(sp)
+     fe0:	01513423          	sd	s5,8(sp)
+     fe4:	01413423          	sd	s4,8(sp)
+     fe8:	01313423          	sd	s3,8(sp)
+     fec:	01213423          	sd	s2,8(sp)
+     ff0:	00f13423          	sd	a5,8(sp)
+     ff4:	00e13423          	sd	a4,8(sp)
+     ff8:	00d13423          	sd	a3,8(sp)
+     ffc:	00c13423          	sd	a2,8(sp)
+    1000:	00b13423          	sd	a1,8(sp)
+    1004:	00113423          	sd	ra,8(sp)
+    1008:	00010093          	mv	ra,sp
+    100c:	fe810113          	addi	sp,sp,-24
+    1010:	f8010113          	addi	sp,sp,-128
+    1014:	00113423          	sd	ra,8(sp)
+    1018:	00513423          	sd	t0,8(sp)
+    101c:	00613423          	sd	t1,8(sp)
+    1020:	00713423          	sd	t2,8(sp)
+    1024:	00a13423          	sd	a0,8(sp)
+    1028:	00b13423          	sd	a1,8(sp)
+    102c:	00c13423          	sd	a2,8(sp)
+    1030:	00d13423          	sd	a3,8(sp)
+    1034:	00e13423          	sd	a4,8(sp)
+    1038:	00f13423          	sd	a5,8(sp)
+    103c:	01013423          	sd	a6,8(sp)
+    1040:	01113423          	sd	a7,8(sp)
+    1044:	01c13423          	sd	t3,8(sp)
+    1048:	01d13423          	sd	t4,8(sp)
+    104c:	01e13423          	sd	t5,8(sp)
+    1050:	01f13423          	sd	t6,8(sp)
+    1054:	00008593          	mv	a1,ra
+    1058:	000050b7          	lui	ra,0x5
+    105c:	55608093          	addi	ra,ra,1366 # 5556 <_binary_mov_test_bin_end+0x40be>
+    1060:	02009093          	slli	ra,ra,0x20
+    1064:	09dc62b7          	lui	t0,0x9dc6
+    1068:	38028293          	addi	t0,t0,896 # 9dc6380 <_binary_mov_test_bin_end+0x9dc4ee8>
+    106c:	0050e0b3          	or	ra,ra,t0
+    1070:	000080e7          	jalr	ra
+    1074:	ea053503          	ld	a0,-352(a0)
+    1078:	000050b7          	lui	ra,0x5
+    107c:	55608093          	addi	ra,ra,1366 # 5556 <_binary_mov_test_bin_end+0x40be>
+    1080:	02009093          	slli	ra,ra,0x20
+    1084:	09dc62b7          	lui	t0,0x9dc6
+    1088:	38028293          	addi	t0,t0,896 # 9dc6380 <_binary_mov_test_bin_end+0x9dc4ee8>
+    108c:	0050e0b3          	or	ra,ra,t0
+    1090:	000080e7          	jalr	ra
+    1094:	e8853103          	ld	sp,-376(a0)
+    1098:	00008067          	ret
+    109c:	f2853f03          	ld	t5,-216(a0)
+    10a0:	01e0b423          	sd	t5,8(ra)
+    10a4:	00008093          	mv	ra,ra
+    10a8:	fd400067          	jr	-44(zero) # 0 <_binary_mov_test_bin_start>
+    10ac:	00100593          	li	a1,1
+    10b0:	00058093          	mv	ra,a1
+    10b4:	e9053403          	ld	s0,-368(a0)
+    10b8:	fc0402e3          	beqz	s0,107c <_binary_mov_test_bin_start+0x107c>
+    10bc:	fff40413          	addi	s0,s0,-1
+    10c0:	e8853823          	sd	s0,-368(a0)
+    10c4:	00008067          	ret
+    10c8:	fa010113          	addi	sp,sp,-96
+    10cc:	01f13423          	sd	t6,8(sp)
+    10d0:	00813423          	sd	s0,8(sp)
+    10d4:	01513423          	sd	s5,8(sp)
+    10d8:	01413423          	sd	s4,8(sp)
+    10dc:	01313423          	sd	s3,8(sp)
+    10e0:	01213423          	sd	s2,8(sp)
+    10e4:	00f13423          	sd	a5,8(sp)
+    10e8:	00e13423          	sd	a4,8(sp)
+    10ec:	00d13423          	sd	a3,8(sp)
+    10f0:	00c13423          	sd	a2,8(sp)
+    10f4:	00b13423          	sd	a1,8(sp)
+    10f8:	00113423          	sd	ra,8(sp)
+    10fc:	00010093          	mv	ra,sp
+    1100:	fe810113          	addi	sp,sp,-24
+    1104:	f8010113          	addi	sp,sp,-128
+    1108:	00113423          	sd	ra,8(sp)
+    110c:	00513423          	sd	t0,8(sp)
+    1110:	00613423          	sd	t1,8(sp)
+    1114:	00713423          	sd	t2,8(sp)
+    1118:	00a13423          	sd	a0,8(sp)
+    111c:	00b13423          	sd	a1,8(sp)
+    1120:	00c13423          	sd	a2,8(sp)
+    1124:	00d13423          	sd	a3,8(sp)
+    1128:	00e13423          	sd	a4,8(sp)
+    112c:	00f13423          	sd	a5,8(sp)
+    1130:	01013423          	sd	a6,8(sp)
+    1134:	01113423          	sd	a7,8(sp)
+    1138:	01c13423          	sd	t3,8(sp)
+    113c:	01d13423          	sd	t4,8(sp)
+    1140:	01e13423          	sd	t5,8(sp)
+    1144:	01f13423          	sd	t6,8(sp)
+    1148:	00008593          	mv	a1,ra
+    114c:	000050b7          	lui	ra,0x5
+    1150:	63208093          	addi	ra,ra,1586 # 5632 <_binary_mov_test_bin_end+0x419a>
+    1154:	02009093          	slli	ra,ra,0x20
+    1158:	756752b7          	lui	t0,0x75675
+    115c:	4a028293          	addi	t0,t0,1184 # 756754a0 <_binary_mov_test_bin_end+0x75674008>
+    1160:	0050e0b3          	or	ra,ra,t0
+    1164:	000080e7          	jalr	ra
+    1168:	66853503          	ld	a0,1640(a0)
+    116c:	000050b7          	lui	ra,0x5
+    1170:	63208093          	addi	ra,ra,1586 # 5632 <_binary_mov_test_bin_end+0x419a>
+    1174:	02009093          	slli	ra,ra,0x20
+    1178:	756752b7          	lui	t0,0x75675
+    117c:	4a028293          	addi	t0,t0,1184 # 756754a0 <_binary_mov_test_bin_end+0x75674008>
+    1180:	0050e0b3          	or	ra,ra,t0
+    1184:	000080e7          	jalr	ra
+    1188:	65053103          	ld	sp,1616(a0)
+    118c:	00008067          	ret
+    1190:	6f053f03          	ld	t5,1776(a0)
+    1194:	01e0b423          	sd	t5,8(ra)
+    1198:	00008093          	mv	ra,ra
+    119c:	fd400067          	jr	-44(zero) # 0 <_binary_mov_test_bin_start>
+    11a0:	00100593          	li	a1,1
+    11a4:	00058093          	mv	ra,a1
+    11a8:	65853403          	ld	s0,1624(a0)
+    11ac:	fc0402e3          	beqz	s0,1170 <_binary_mov_test_bin_start+0x1170>
+    11b0:	fff40413          	addi	s0,s0,-1
+    11b4:	64853c23          	sd	s0,1624(a0)
+    11b8:	00008067          	ret
+    11bc:	fa010113          	addi	sp,sp,-96
+    11c0:	01f13423          	sd	t6,8(sp)
+    11c4:	00813423          	sd	s0,8(sp)
+    11c8:	01513423          	sd	s5,8(sp)
+    11cc:	01413423          	sd	s4,8(sp)
+    11d0:	01313423          	sd	s3,8(sp)
+    11d4:	01213423          	sd	s2,8(sp)
+    11d8:	00f13423          	sd	a5,8(sp)
+    11dc:	00e13423          	sd	a4,8(sp)
+    11e0:	00d13423          	sd	a3,8(sp)
+    11e4:	00c13423          	sd	a2,8(sp)
+    11e8:	00b13423          	sd	a1,8(sp)
+    11ec:	00113423          	sd	ra,8(sp)
+    11f0:	00010093          	mv	ra,sp
+    11f4:	fe810113          	addi	sp,sp,-24
+    11f8:	f8010113          	addi	sp,sp,-128
+    11fc:	00113423          	sd	ra,8(sp)
+    1200:	00513423          	sd	t0,8(sp)
+    1204:	00613423          	sd	t1,8(sp)
+    1208:	00713423          	sd	t2,8(sp)
+    120c:	00a13423          	sd	a0,8(sp)
+    1210:	00b13423          	sd	a1,8(sp)
+    1214:	00c13423          	sd	a2,8(sp)
+    1218:	00d13423          	sd	a3,8(sp)
+    121c:	00e13423          	sd	a4,8(sp)
+    1220:	00f13423          	sd	a5,8(sp)
+    1224:	01013423          	sd	a6,8(sp)
+    1228:	01113423          	sd	a7,8(sp)
+    122c:	01c13423          	sd	t3,8(sp)
+    1230:	01d13423          	sd	t4,8(sp)
+    1234:	01e13423          	sd	t5,8(sp)
+    1238:	01f13423          	sd	t6,8(sp)
+    123c:	00008593          	mv	a1,ra
+    1240:	000050b7          	lui	ra,0x5
+    1244:	5dc08093          	addi	ra,ra,1500 # 55dc <_binary_mov_test_bin_end+0x4144>
+    1248:	02009093          	slli	ra,ra,0x20
+    124c:	b14c32b7          	lui	t0,0xb14c3
+    1250:	4a028293          	addi	t0,t0,1184 # ffffffffb14c34a0 <_binary_mov_test_bin_end+0xffffffffb14c2008>
+    1254:	0050e0b3          	or	ra,ra,t0
+    1258:	000080e7          	jalr	ra
+    125c:	e4853503          	ld	a0,-440(a0)
+    1260:	000050b7          	lui	ra,0x5
+    1264:	5dc08093          	addi	ra,ra,1500 # 55dc <_binary_mov_test_bin_end+0x4144>
+    1268:	02009093          	slli	ra,ra,0x20
+    126c:	b14c32b7          	lui	t0,0xb14c3
+    1270:	4a028293          	addi	t0,t0,1184 # ffffffffb14c34a0 <_binary_mov_test_bin_end+0xffffffffb14c2008>
+    1274:	0050e0b3          	or	ra,ra,t0
+    1278:	000080e7          	jalr	ra
+    127c:	e3053103          	ld	sp,-464(a0)
+    1280:	00008067          	ret
+    1284:	ed053f03          	ld	t5,-304(a0)
+    1288:	01e0b423          	sd	t5,8(ra)
+    128c:	00008093          	mv	ra,ra
+    1290:	fd400067          	jr	-44(zero) # 0 <_binary_mov_test_bin_start>
+    1294:	00100593          	li	a1,1
+    1298:	00058093          	mv	ra,a1
+    129c:	e3853403          	ld	s0,-456(a0)
+    12a0:	fc0402e3          	beqz	s0,1264 <_binary_mov_test_bin_start+0x1264>
+    12a4:	fff40413          	addi	s0,s0,-1
+    12a8:	e2853c23          	sd	s0,-456(a0)
+    12ac:	00008067          	ret
+    12b0:	fa010113          	addi	sp,sp,-96
+    12b4:	01f13423          	sd	t6,8(sp)
+    12b8:	00813423          	sd	s0,8(sp)
+    12bc:	01513423          	sd	s5,8(sp)
+    12c0:	01413423          	sd	s4,8(sp)
+    12c4:	01313423          	sd	s3,8(sp)
+    12c8:	01213423          	sd	s2,8(sp)
+    12cc:	00f13423          	sd	a5,8(sp)
+    12d0:	00e13423          	sd	a4,8(sp)
+    12d4:	00d13423          	sd	a3,8(sp)
+    12d8:	00c13423          	sd	a2,8(sp)
+    12dc:	00b13423          	sd	a1,8(sp)
+    12e0:	00113423          	sd	ra,8(sp)
+    12e4:	00010093          	mv	ra,sp
+    12e8:	fe810113          	addi	sp,sp,-24
+    12ec:	f8010113          	addi	sp,sp,-128
+    12f0:	00113423          	sd	ra,8(sp)
+    12f4:	00513423          	sd	t0,8(sp)
+    12f8:	00613423          	sd	t1,8(sp)
+    12fc:	00713423          	sd	t2,8(sp)
+    1300:	00a13423          	sd	a0,8(sp)
+    1304:	00b13423          	sd	a1,8(sp)
+    1308:	00c13423          	sd	a2,8(sp)
+    130c:	00d13423          	sd	a3,8(sp)
+    1310:	00e13423          	sd	a4,8(sp)
+    1314:	00f13423          	sd	a5,8(sp)
+    1318:	01013423          	sd	a6,8(sp)
+    131c:	01113423          	sd	a7,8(sp)
+    1320:	01c13423          	sd	t3,8(sp)
+    1324:	01d13423          	sd	t4,8(sp)
+    1328:	01e13423          	sd	t5,8(sp)
+    132c:	01f13423          	sd	t6,8(sp)
+    1330:	00008593          	mv	a1,ra
+    1334:	000050b7          	lui	ra,0x5
+    1338:	5fe08093          	addi	ra,ra,1534 # 55fe <_binary_mov_test_bin_end+0x4166>
+    133c:	02009093          	slli	ra,ra,0x20
+    1340:	e87352b7          	lui	t0,0xe8735
+    1344:	4a028293          	addi	t0,t0,1184 # ffffffffe87354a0 <_binary_mov_test_bin_end+0xffffffffe8734008>
+    1348:	0050e0b3          	or	ra,ra,t0
+    134c:	000080e7          	jalr	ra
+    1350:	3b053503          	ld	a0,944(a0)
+    1354:	000050b7          	lui	ra,0x5
+    1358:	5fe08093          	addi	ra,ra,1534 # 55fe <_binary_mov_test_bin_end+0x4166>
+    135c:	02009093          	slli	ra,ra,0x20
+    1360:	e87352b7          	lui	t0,0xe8735
+    1364:	4a028293          	addi	t0,t0,1184 # ffffffffe87354a0 <_binary_mov_test_bin_end+0xffffffffe8734008>
+    1368:	0050e0b3          	or	ra,ra,t0
+    136c:	000080e7          	jalr	ra
+    1370:	39853103          	ld	sp,920(a0)
+    1374:	00008067          	ret
+    1378:	43853f03          	ld	t5,1080(a0)
+    137c:	01e0b423          	sd	t5,8(ra)
+    1380:	00008093          	mv	ra,ra
+    1384:	fd400067          	jr	-44(zero) # 0 <_binary_mov_test_bin_start>
+    1388:	00100593          	li	a1,1
+    138c:	00058093          	mv	ra,a1
+    1390:	3a053403          	ld	s0,928(a0)
+    1394:	fc0402e3          	beqz	s0,1358 <_binary_mov_test_bin_start+0x1358>
+    1398:	fff40413          	addi	s0,s0,-1
+    139c:	3a853023          	sd	s0,928(a0)
+    13a0:	00008067          	ret
+    13a4:	fa010113          	addi	sp,sp,-96
+    13a8:	01f13423          	sd	t6,8(sp)
+    13ac:	00813423          	sd	s0,8(sp)
+    13b0:	01513423          	sd	s5,8(sp)
+    13b4:	01413423          	sd	s4,8(sp)
+    13b8:	01313423          	sd	s3,8(sp)
+    13bc:	01213423          	sd	s2,8(sp)
+    13c0:	00f13423          	sd	a5,8(sp)
+    13c4:	00e13423          	sd	a4,8(sp)
+    13c8:	00d13423          	sd	a3,8(sp)
+    13cc:	00c13423          	sd	a2,8(sp)
+    13d0:	00b13423          	sd	a1,8(sp)
+    13d4:	00113423          	sd	ra,8(sp)
+    13d8:	00010093          	mv	ra,sp
+    13dc:	fe810113          	addi	sp,sp,-24
+    13e0:	f8010113          	addi	sp,sp,-128
+    13e4:	00113423          	sd	ra,8(sp)
+    13e8:	00513423          	sd	t0,8(sp)
+    13ec:	00613423          	sd	t1,8(sp)
+    13f0:	00713423          	sd	t2,8(sp)
+    13f4:	00a13423          	sd	a0,8(sp)
+    13f8:	00b13423          	sd	a1,8(sp)
+    13fc:	00c13423          	sd	a2,8(sp)
+    1400:	00d13423          	sd	a3,8(sp)
+    1404:	00e13423          	sd	a4,8(sp)
+    1408:	00f13423          	sd	a5,8(sp)
+    140c:	01013423          	sd	a6,8(sp)
+    1410:	01113423          	sd	a7,8(sp)
+    1414:	01c13423          	sd	t3,8(sp)
+    1418:	01d13423          	sd	t4,8(sp)
+    141c:	01e13423          	sd	t5,8(sp)
+    1420:	01f13423          	sd	t6,8(sp)
+    1424:	00008593          	mv	a1,ra
+    1428:	000050b7          	lui	ra,0x5
+    142c:	5d508093          	addi	ra,ra,1493 # 55d5 <_binary_mov_test_bin_end+0x413d>
+    1430:	02009093          	slli	ra,ra,0x20
+    1434:	d6db12b7          	lui	t0,0xd6db1
+    1438:	4a028293          	addi	t0,t0,1184 # ffffffffd6db14a0 <_binary_mov_test_bin_end+0xffffffffd6db0008>
+    143c:	0050e0b3          	or	ra,ra,t0
+    1440:	000080e7          	jalr	ra
+    1444:	a9853503          	ld	a0,-1384(a0)
+    1448:	000050b7          	lui	ra,0x5
+    144c:	5d508093          	addi	ra,ra,1493 # 55d5 <_binary_mov_test_bin_end+0x413d>
+    1450:	02009093          	slli	ra,ra,0x20
+    1454:	d6db12b7          	lui	t0,0xd6db1
+    1458:	4a028293          	addi	t0,t0,1184 # ffffffffd6db14a0 <_binary_mov_test_bin_end+0xffffffffd6db0008>
+    145c:	0050e0b3          	or	ra,ra,t0
+    1460:	000080e7          	jalr	ra
+    1464:	a8053103          	ld	sp,-1408(a0)
+    1468:	00008067          	ret
+    146c:	b2053f03          	ld	t5,-1248(a0)
+    1470:	01e0b423          	sd	t5,8(ra)
+    1474:	00008093          	mv	ra,ra
+    1478:	fd400067          	jr	-44(zero) # 0 <_binary_mov_test_bin_start>
+    147c:	00100593          	li	a1,1
+    1480:	00058093          	mv	ra,a1
+    1484:	a8853403          	ld	s0,-1400(a0)
+    1488:	fc0402e3          	beqz	s0,144c <_binary_mov_test_bin_start+0x144c>
+    148c:	fff40413          	addi	s0,s0,-1
+    1490:	a8853423          	sd	s0,-1400(a0)
+    1494:	00008067          	ret
