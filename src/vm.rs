@@ -310,12 +310,14 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
         self.registers[1] = ebpf::MM_INPUT_START;
         self.registers[ebpf::FRAME_PTR_REG] = self.stack_pointer;
         self.registers[11] = executable.get_entrypoint_instruction_offset() as u64;
+        println!("registers[11]:{:?}", self.registers);
         let config = executable.get_config();
         let initial_insn_count = if config.enable_instruction_meter {
             self.context_object_pointer.get_remaining()
         } else {
             0
         };
+        println!("initial_insn_count:{:?}", initial_insn_count);
         self.previous_instruction_meter = initial_insn_count;
         self.due_insn_count = 0;
         self.program_result = ProgramResult::Ok(0);
@@ -343,7 +345,8 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
                 Err(error) => return (0, ProgramResult::Err(error)),
             };
             println!("compiled_program:{:?}", compiled_program.text_section);
-            compiled_program.invoke(config, self, self.registers);
+            println!("pc_section:{:?}", compiled_program.pc_section);
+            // compiled_program.invoke(config, self, self.registers);
             // }
             // #[cfg(not(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64")))]
             // {

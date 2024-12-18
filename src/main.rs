@@ -131,6 +131,7 @@ macro_rules! test_interpreter_and_jit {
             ),
             Ok(()) => {
                 let (instruction_count_jit, result) = vm.execute_program(&$executable, false);
+                println!("instruction_count_jit output:{:?}", instruction_count_jit);
                 let tracer_jit = &vm.context_object_pointer;
                 // println!("{:?}",&tracer_jit as *const _);
                 if !TestContextObject::compare_trace_log(&_tracer_interpreter, tracer_jit) {
@@ -144,6 +145,7 @@ macro_rules! test_interpreter_and_jit {
                         .unwrap();
                     panic!();
                 }
+                println!("now");
                 assert_eq!(
                     format!("{:?}", result),
                     expected_result,

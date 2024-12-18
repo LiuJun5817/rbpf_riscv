@@ -50,11 +50,9 @@ pub const GP: u8 = 3; //全局指针
 pub const TP: u8 = 4; //线程指针
 
 // RISC-V 参数寄存器（调用约定）
-pub const ARGUMENT_REGISTERS: [u8; 8] = [A0, A1, A2, A3, A4, A5, A6, A7];
-pub const CALLER_SAVED_REGISTERS: [u8; 16] = [
-    RA, T0, T1, T2, A0, A1, A2, A3, A4, A5, A6, A7, T3, T4, T5, T6,
-]; // a0 to a7 are caller saved
-pub const CALLEE_SAVED_REGISTERS: [u8; 12] = [S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11]; // s0 to s11 are callee saved
+pub const ARGUMENT_REGISTERS: [u8; 6] = [A0, A1, A2, A3, A4, A5];
+pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, A2, A3, A1, A0, A4, A5, A6, A7]; // a0 to a7 are caller saved
+pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S0, S3, S4, S5, S6, S7]; // s0 to s11 are callee saved
 
 #[derive(Debug, Clone, Copy)]
 pub enum RISCVInstructionType {
