@@ -346,6 +346,7 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
             };
             println!("compiled_program:{:?}", compiled_program.text_section);
             println!("pc_section:{:?}", compiled_program.pc_section);
+            println!("self.registers:{:?}", self.registers);
             // compiled_program.invoke(config, self, self.registers);
             // }
             // #[cfg(not(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64")))]

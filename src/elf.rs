@@ -279,23 +279,23 @@ impl<C: ContextObject> Executable<C> {
     pub fn jit_compile(&mut self) -> Result<(), crate::error::EbpfError> {
         let jit = JitCompiler::<C>::new(self)?;
         self.compiled_program = Some(jit.compile()?);
-        println!("hello9");
-        println!(
-            "{:?}",
-            self.compiled_program
-                .as_ref()
-                .unwrap()
-                .text_section
-                .as_ptr()
-        );
-        println!("{:?}", self.compiled_program.as_ref().unwrap().text_section);
-        let instructions_dec = &*self.compiled_program.as_ref().unwrap().text_section; // 十进制表示
+        // println!("hello9");
+        // println!(
+        //     "{:?}",
+        //     self.compiled_program
+        //         .as_ref()
+        //         .unwrap()
+        //         .text_section
+        //         .as_ptr()
+        // );
+        // println!("{:?}", self.compiled_program.as_ref().unwrap().text_section);
+        // let instructions_dec = &*self.compiled_program.as_ref().unwrap().text_section; // 十进制表示
 
-        // 以十六进制输出
-        println!("机器指令的十六进制表示：");
-        for instr in instructions_dec {
-            print!("{:02x} ", instr); // 每个指令以十六进制格式打印
-        }
+        // // 以十六进制输出
+        // println!("机器指令的十六进制表示：");
+        // for instr in instructions_dec {
+        //     print!("{:02x} ", instr); // 每个指令以十六进制格式打印
+        // }
         Ok(())
     }
 

@@ -50,9 +50,9 @@ pub const GP: u8 = 3; //全局指针
 pub const TP: u8 = 4; //线程指针
 
 // RISC-V 参数寄存器（调用约定）
-pub const ARGUMENT_REGISTERS: [u8; 6] = [A0, A1, A2, A3, A4, A5];
-pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, A2, A3, A1, A0, A4, A5, A6, A7]; // a0 to a7 are caller saved
-pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S0, S3, S4, S5, S6, S7]; // s0 to s11 are callee saved
+pub const ARGUMENT_REGISTERS: [u8; 6] = [A3, A2, A1, T6, A4, A5];
+pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, T6, A1, A2, A3, A4, A5, A6, A7]; // a0 to a7 are caller saved
+pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S1, S0, S2, S3, S4, S5]; // s0 to s11 are callee saved
 
 #[derive(Debug, Clone, Copy)]
 pub enum RISCVInstructionType {
@@ -167,7 +167,7 @@ impl RISCVInstruction {
             }
             RISCVInstructionType::J => {
                 // J 型指令 (Jump)
-                let imm_19_12 = (self.immediate.unwrap() & 0xFF000) << 12; // 提取立即数 bit[12:19]
+                let imm_19_12 = (self.immediate.unwrap() & 0xFF000); // 提取立即数 bit[12:19]
                 let imm_11 = (self.immediate.unwrap() & 0x800) << 9; // 提取立即数 bit[11]
                 let imm_10_1 = (self.immediate.unwrap() & 0x7FE) << 20; // 提取立即数 bit[1:10]
                 let imm_20 = (self.immediate.unwrap() & 0x100000) << 11; // 提取立即数 bit[20]
@@ -246,7 +246,7 @@ impl RISCVInstruction {
         }
     }
 
-    ///Add imm and rs1 to destination (ADD rd, rs1, imm)
+    ///Add imm and rs1 to destination (ADDI rd, rs1, imm)
     #[inline]
     pub const fn addi(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
         exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
@@ -274,6 +274,179 @@ impl RISCVInstruction {
             rs1: Some(source1),
             rs2: Some(source2),
             funct7: Some(0x20),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Multiply the lower 32 bits of rs1 and rs2, sign-extend the result to 64 bits, and write to rd (MULW rd, rs1, rs2)
+    #[inline]
+    pub const fn mulw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(
+            size,
+            OperandSize::S0 | OperandSize::S8 | OperandSize::S16 | OperandSize::S64
+        );
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B, // Base opcode for RV64M extension instructions
+            rd: Some(destination),
+            funct3: Some(0), // funct3 = 0 for MULW
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1), // funct7 = 0x01 for MULW
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Multiply rs1 and rs2 to destination (MUL rd, rs1, rs2)
+    #[inline]
+    pub const fn mul(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x0), // funct3 for MUL operation
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x01), // funct7 for MUL operation
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Multiply rs1 and rs2 (unsigned) and store high 64 bits in destination (MULHU rd, rs1, rs2)
+    #[inline]
+    pub const fn mulhu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for arithmetic operations
+            rd: Some(destination),
+            funct3: Some(0x3), // funct3 for MULHU
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1), // funct7 for MULHU (unsigned multiplication)
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Multiply rs1 and rs2, and store the high 64 bits of the result in rd (MULH rd, rs1, rs2)
+    #[inline]
+    pub const fn mulh(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for ALU instructions
+            rd: Some(destination),
+            funct3: Some(0x1), // funct3 for MULH
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1), // funct7 for MULH
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Divide unsigned rs1 by rs2 and store the result in destination (DIVUW rd, rs1, rs2)
+    #[inline]
+    pub const fn divuw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x5),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Divide signed rs1 by rs2 and store the result in destination (DIVW rd, rs1, rs2)
+    #[inline]
+    pub const fn divw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x4),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Divide rs1 by rs2 (unsigned) and store the result in rd (DIVU rd, rs1, rs2)
+    #[inline]
+    pub const fn divu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x5),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Divide rs1 by rs2 (signed) and store the result in rd (DIV rd, rs1, rs2)
+    #[inline]
+    pub const fn div(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x4),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// `remuw rd, rs1, rs2` computes `rd = rs1 % rs2` for unsigned integers.
+    #[inline]
+    pub const fn remuw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x7),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Remainder of unsigned division rs1 by rs2 (REMU rd, rs1, rs2)
+    #[inline]
+    pub const fn remu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x7), // funct3 value for REMU
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1), // funct7 value for REMU
             immediate: None,
             size,
         }
@@ -646,7 +819,7 @@ impl RISCVInstruction {
     #[inline]
     pub const fn jalr(source1: u8, immediate: i64, destination: u8) -> Self {
         Self {
-            inst_type: RISCVInstructionType::I,
+            inst_type: RISCVInstructionType::J,
             opcode: 0x67,
             rd: Some(destination),
             funct3: Some(0),
@@ -661,8 +834,8 @@ impl RISCVInstruction {
     #[inline]
     pub const fn jal(offset: i64, destination: u8) -> Self {
         Self {
-            inst_type: RISCVInstructionType::I,
-            opcode: 0x67,
+            inst_type: RISCVInstructionType::J,
+            opcode: 0x6f,
             rd: Some(destination),
             immediate: Some(offset),
             size: OperandSize::S64,
