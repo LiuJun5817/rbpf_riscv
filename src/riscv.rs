@@ -49,10 +49,14 @@ pub const SP: u8 = 2; // 栈指针 相当于x86_64中的RSP寄存器
 pub const GP: u8 = 3; //全局指针
 pub const TP: u8 = 4; //线程指针
 
-// RISC-V 参数寄存器（调用约定）
-pub const ARGUMENT_REGISTERS: [u8; 6] = [A3, A2, A1, T6, A4, A5];
-pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, T6, A1, A2, A3, A4, A5, A6, A7]; // a0 to a7 are caller saved
-pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S1, S0, S2, S3, S4, S5]; // s0 to s11 are callee saved
+//RISC-V 参数寄存器（调用约定）
+// pub const ARGUMENT_REGISTERS: [u8; 6] = [A3, A2, A1, T6, A4, A5];
+// pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, T6, A1, A2, A3, A4, A5, A6, A7]; // a0 to a7 are caller saved
+// pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S1, S0, S2, S3, S4, S5]; // s0 to s11 are callee saved
+
+pub const ARGUMENT_REGISTERS: [u8; 6] = [A0, A1, A2, A3, A4, A5];
+pub const CALLER_SAVED_REGISTERS: [u8; 9] = [RA, A3, A2, A1, A0, A4, A5, A6, A7]; // a0 to a7 are caller saved
+pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S0, S1, S2, S3, S4, S5]; // s0 to s11 are callee saved
 
 #[derive(Debug, Clone, Copy)]
 pub enum RISCVInstructionType {
@@ -246,6 +250,23 @@ impl RISCVInstruction {
         }
     }
 
+    ///Addw rs1 and rs2 to destination (ADDW rd, rs1, rs2)
+    #[inline]
+    pub const fn addw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0),
+            immediate: None,
+            size,
+        }
+    }
+
     ///Add imm and rs1 to destination (ADDI rd, rs1, imm)
     #[inline]
     pub const fn addi(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
@@ -269,6 +290,23 @@ impl RISCVInstruction {
         Self {
             inst_type: RISCVInstructionType::R,
             opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x20),
+            immediate: None,
+            size,
+        }
+    }
+
+    ///subw rs1 and rs2 to destination (subw rd, rs1, rs2)  rd = rs1 - rs2
+    #[inline]
+    pub const fn subw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
             rd: Some(destination),
             funct3: Some(0),
             rs1: Some(source1),
@@ -469,6 +507,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// SLLw (Shift Left Logical rd, rs1, rs2) 按位逻辑左移低32位操作
+    #[inline]
+    pub const fn sllw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x1),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0),
+            immediate: None,
+            size,
+        }
+    }
+
     ///logical left shift (SLLI rd, rs1, imm)
     #[inline]
     pub const fn slli(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
@@ -476,6 +531,23 @@ impl RISCVInstruction {
         Self {
             inst_type: RISCVInstructionType::I,
             opcode: 0x13,
+            rd: Some(destination),
+            funct3: Some(1),
+            rs1: Some(source1),
+            rs2: None,
+            funct7: Some(0),
+            immediate: Some(shift),
+            size,
+        }
+    }
+
+    ///logical left shift (SLLIW rd, rs1, imm)
+    #[inline]
+    pub const fn slliw(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x1B,
             rd: Some(destination),
             funct3: Some(1),
             rs1: Some(source1),
@@ -503,6 +575,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// SRLW (Shift Right Logical rd, rs1, rs2) 按位逻辑右移低32位操作
+    #[inline]
+    pub const fn srlw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x5),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x0),
+            immediate: None,
+            size,
+        }
+    }
+
     ///logical right shift (SRLI rd, rs1, imm)
     #[inline]
     pub const fn srli(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
@@ -510,6 +599,23 @@ impl RISCVInstruction {
         Self {
             inst_type: RISCVInstructionType::I,
             opcode: 0x13,
+            rd: Some(destination),
+            funct3: Some(5),
+            rs1: Some(source1),
+            rs2: None,
+            funct7: Some(0),
+            immediate: Some(shift),
+            size,
+        }
+    }
+
+    ///logical right low 32 bits shift (SRLIW rd, rs1, imm)
+    #[inline]
+    pub const fn srliw(size: OperandSize, source1: u8, shift: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x1B,
             rd: Some(destination),
             funct3: Some(5),
             rs1: Some(source1),
@@ -537,6 +643,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// SRAW (Shift Right Arithmetic rd, rs1, rs2) 按位算术右移低32位操作
+    #[inline]
+    pub const fn sraw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
+            rd: Some(destination),
+            funct3: Some(0x5),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x20),
+            immediate: None,
+            size,
+        }
+    }
+
     /// SRAI (Shift Right Arithmetic Immediate rd, rs1, imm) 算术右移立即数操作
     #[inline]
     pub const fn srai(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
@@ -549,6 +672,23 @@ impl RISCVInstruction {
             rs1: Some(source1),
             rs2: None,
             funct7: Some(0x20), // funct7 for SRAI
+            immediate: Some(immediate),
+            size,
+        }
+    }
+
+    /// SRAIW (Shift Right Arithmetic Immediate rd, rs1, imm) 算术右移低32位立即数操作
+    #[inline]
+    pub const fn sraiw(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x1B,
+            rd: Some(destination),
+            funct3: Some(0x5),
+            rs1: Some(source1),
+            rs2: None,
+            funct7: Some(0x20),
             immediate: Some(immediate),
             size,
         }
@@ -819,7 +959,7 @@ impl RISCVInstruction {
     #[inline]
     pub const fn jalr(source1: u8, immediate: i64, destination: u8) -> Self {
         Self {
-            inst_type: RISCVInstructionType::J,
+            inst_type: RISCVInstructionType::I,
             opcode: 0x67,
             rd: Some(destination),
             funct3: Some(0),

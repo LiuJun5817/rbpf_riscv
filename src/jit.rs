@@ -16,7 +16,7 @@ use crate::{
     memory_management::{
         allocate_pages, free_pages, get_system_page_size, protect_pages, round_to_page_size,
     },
-    // memory_region::{AccessType, MemoryMapping},
+    memory_region::{AccessType, MemoryMapping},
     riscv::*,
     vm::{get_runtime_environment_key, Config, ContextObject, EbpfVm},
 };
@@ -96,35 +96,19 @@ impl JitProgram {
         registers: [u64; 12],
     ) {
         unsafe {
-            let get_key = get_runtime_environment_key() as isize;
-            println!(
-                "get_runtime_environment_key() as isize:{:?}",
-                get_runtime_environment_key() as isize
-            );
-            println!(
-                "std::ptr::addr_of_mut!(*vm).cast::<u64>():{:?}",
-                std::ptr::addr_of_mut!(*vm).cast::<u64>()
-            );
             std::arch::asm!(
-                // 保存被调用者保存寄存器（s0-s11）
                 "addi sp, sp, -16",                // 创建栈帧，预留 16 字节空间
-                "sd s0, 0(sp)",                    // 保存 s0 到栈
-                "sd s1, 8(sp)",                    // 保存 s1 到栈
+                "sd s1, 0(sp)",                    // 保存 s0 到栈
+                "sd s0, 8(sp)",                    // 保存 s1 到栈
 
-                // 设置参数寄存器
-                // "mv t6, sp",
-                // "ld t6, sp",这一句错的，应该用sd，把sp的值存到t6指向的内存地址
-                "sd sp, 0(t6)",
-                //"addi sp, sp, -8",这一句也错的，原先的意思是将t6指向的内存地址处的值-8
-                // "ld t5, 0(t6)",           // 加载内存地址的值到 t5
-                // "addi t5, t5, -8",        // t5 = t5 - 8
-                // "sd t5, 0(t6)",           // 将计算结果存回内存
+                "sd sp, 0(t5)",
 
-                "mv s0, a0",
+
+                "mv s1, a0",
                 "ld a0, 0(a7)",           // 加载第 1 个参数到 a0
-                "ld a2, 8(a7)",           // 加载第 2 个参数到 a2
-                "ld a1, 16(a7)",          // 加载第 3 个参数到 a1
-                "ld t6, 24(a7)",          // 加载第 4 个参数到 t0
+                "ld a1, 8(a7)",           // 加载第 2 个参数到 a2
+                "ld a2, 16(a7)",          // 加载第 3 个参数到 a1
+                "ld a3, 24(a7)",          // 加载第 4 个参数到 t0
                 "ld a4, 32(a7)",          // 加载第 5 个参数到 a4
                 "ld a5, 40(a7)",          // 加载第 6 个参数到 a5
 
@@ -133,30 +117,23 @@ impl JitProgram {
                 "ld s3, 56(a7)",          // 加载 s3
                 "ld s4, 64(a7)",          // 加载 s4
                 "ld s5, 72(a7)",          // 加载 s5
-                "ld s1, 80(a7)",          // 加载 s1
+                "ld s0, 80(a7)",          // 加载 s1
                 "ld a7, 88(a7)",          // 加载 a7
                 // 跳转到目标地址并调用
                 "jalr ra, a6",       // 调用目标函数
 
                 // 恢复被调用者保存寄存器
-                "ld s0, 0(sp)",
-                "ld s1, 8(sp)",
+                "ld s1, 0(sp)",
+                "ld s0, 8(sp)",
                 "addi sp, sp, 16",                 // 恢复栈帧
 
-                inlateout("t6") &mut vm.host_stack_pointer => _,
-                // host_stack_pointer = in(reg) &mut vm.host_stack_pointer,
-                inlateout("a3") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,
-                // inlateout("a3") std::ptr::addr_of_mut!(*vm).cast::<u64>() => _,
-
-                inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,
-                // target_address = in(reg) self.pc_section[registers[11] as usize], // 调用地址
+                inlateout("t5") &mut vm.host_stack_pointer => _,//t6
+                inlateout("t6") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,//a3
+                inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,//a0
                 inlateout("a6") self.pc_section[registers[11] as usize] => _,
-                // registers = in(reg) &registers,    // 输入寄存器数组地址
                 inlateout("a7") &registers => _,
                 lateout("a2") _, lateout("a1") _, lateout("a4") _,
                 lateout("a5") _, lateout("s2") _, lateout("s3") _, lateout("s4") _, lateout("s5") _,
-
-                // options(nostack)                   // 指定不使用额外栈
             );
         }
     }
@@ -169,44 +146,42 @@ impl JitProgram {
     // ) {
     //     unsafe {
     //         std::arch::asm!(
-    //             // 保存寄存器
-    //             "sw ra, 0(sp)",
-    //             "sw t0, 4(sp)",
-    //             "sw t1, 8(sp)",
-    //             "sw t2, 12(sp)",
-    //             "sw t3, 16(sp)",
-    //             "sw t4, 20(sp)",
-    //             "sw t5, 24(sp)",
-    //             "sw t6, 28(sp)",
+    //             "addi sp, sp, -16",                // 创建栈帧，预留 16 字节空间
+    //             "sd s0, 0(sp)",                    // 保存 s0 到栈
+    //             "sd s1, 8(sp)",                    // 保存 s1 到栈
 
-    //             // 修改栈指针
-    //             "mv sp, {host_stack_pointer}",
+    //             "sd sp, 0(t6)",
 
-    //             // 将寄存器值加载到对应寄存器中
-    //             "lw a0, 0(a1)",       // r11 + 0x00 -> a0
-    //             "lw a1, 4(a1)",       // r11 + 0x08 -> a1
-    //             "lw a2, 8(a1)",       // r11 + 0x10 -> a2
-    //             "lw a3, 12(a1)",      // r11 + 0x18 -> a3
-    //             "lw a4, 16(a1)",      // r11 + 0x20 -> a4
-    //             "lw a5, 20(a1)",      // r11 + 0x28 -> a5
-    //             "lw a6, 24(a1)",      // r11 + 0x30 -> a6
-    //             "lw a7, 28(a1)",      // r11 + 0x38 -> a7
+    //             "mv s0, a0",
+    //             "ld a0, 0(a7)",           // 加载第 1 个参数到 a0
+    //             "ld a2, 8(a7)",           // 加载第 2 个参数到 a2
+    //             "ld a1, 16(a7)",          // 加载第 3 个参数到 a1
+    //             "ld t6, 24(a7)",          // 加载第 4 个参数到 t0
+    //             "ld a4, 32(a7)",          // 加载第 5 个参数到 a4
+    //             "ld a5, 40(a7)",          // 加载第 6 个参数到 a5
 
-    //             // 跳转到函数
-    //             "jalr {pc_section}",
+    //             // 设置被调用者保存寄存器
+    //             "ld s2, 48(a7)",          // 加载 s2
+    //             "ld s3, 56(a7)",          // 加载 s3
+    //             "ld s4, 64(a7)",          // 加载 s4
+    //             "ld s5, 72(a7)",          // 加载 s5
+    //             "ld s1, 80(a7)",          // 加载 s1
+    //             "ld a7, 88(a7)",          // 加载 a7
+    //             // 跳转到目标地址并调用
+    //             "jalr ra, a6",       // 调用目标函数
 
-    //             // 恢复栈和寄存器
-    //             "lw ra, 0(sp)",
-    //             "lw t0, 4(sp)",
-    //             "lw t1, 8(sp)",
-    //             "lw t2, 12(sp)",
-    //             "lw t3, 16(sp)",
-    //             "lw t4, 20(sp)",
-    //             "lw t5, 24(sp)",
-    //             "lw t6, 28(sp)",
-    //             host_stack_pointer = in(reg) &mut vm.host_stack_pointer,
-    //             inlateout("a1") &registers => _,
-    //             lateout("a0") _,
+    //             // 恢复被调用者保存寄存器
+    //             "ld s0, 0(sp)",
+    //             "ld s1, 8(sp)",
+    //             "addi sp, sp, 16",                 // 恢复栈帧
+
+    //             inlateout("t6") &mut vm.host_stack_pointer => _,
+    //             inlateout("a3") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,
+    //             inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,
+    //             inlateout("a6") self.pc_section[registers[11] as usize] => _,
+    //             inlateout("a7") &registers => _,
+    //             lateout("a2") _, lateout("a1") _, lateout("a4") _,
+    //             lateout("a5") _, lateout("s2") _, lateout("s3") _, lateout("s4") _, lateout("s5") _,
     //         );
     //     }
     // }
@@ -269,23 +244,24 @@ const ANCHOR_TRANSLATE_MEMORY_ADDRESS: usize = 21;
 const ANCHOR_COUNT: usize = 30; // Update me when adding or removing anchors
 
 const REGISTER_MAP: [u8; 11] = [
-    CALLER_SAVED_REGISTERS[0], //a0
-    ARGUMENT_REGISTERS[1],     //a2
-    ARGUMENT_REGISTERS[2],     //a1
-    ARGUMENT_REGISTERS[3],     //t6
+    CALLER_SAVED_REGISTERS[4], //a0 //T6
+    ARGUMENT_REGISTERS[1],     //a2 //A1
+    ARGUMENT_REGISTERS[2],     //a1 //A2
+    ARGUMENT_REGISTERS[3],     //t6 //A3
     ARGUMENT_REGISTERS[4],     //a4
     ARGUMENT_REGISTERS[5],     //a5
     CALLEE_SAVED_REGISTERS[2], //s2
     CALLEE_SAVED_REGISTERS[3], //s3
     CALLEE_SAVED_REGISTERS[4], //s4
     CALLEE_SAVED_REGISTERS[5], //s5
-    CALLEE_SAVED_REGISTERS[0], //s1
+    CALLEE_SAVED_REGISTERS[0], //s1 //S0
 ];
 
 /// A3: Used together with slot_in_vm()
-const REGISTER_PTR_TO_VM: u8 = ARGUMENT_REGISTERS[0];
+// const REGISTER_PTR_TO_VM: u8 = ARGUMENT_REGISTERS[0];//A0
+const REGISTER_PTR_TO_VM: u8 = T6;
 /// S0: Program counter limit
-const REGISTER_INSTRUCTION_METER: u8 = CALLEE_SAVED_REGISTERS[1];
+const REGISTER_INSTRUCTION_METER: u8 = CALLEE_SAVED_REGISTERS[1]; //S1
 /// A6: Other scratch register
 const REGISTER_OTHER_SCRATCH: u8 = CALLER_SAVED_REGISTERS[7];
 /// A7: Scratch register
@@ -452,48 +428,44 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
                 // BPF_LDX class
                 ebpf::LD_B_REG   => {
-                    self.emit_ins(RISCVInstruction::load(OperandSize::S8, src, insn.off as i64, dst));
+                    self.emit_address_translation(Some(dst), Value::RegisterPlusConstant64(src, insn.off as i64, true), 1, None);
                 },
                 ebpf::LD_H_REG   => {
-                    self.emit_ins(RISCVInstruction::load(OperandSize::S16, src, insn.off as i64, dst));
+                    self.emit_address_translation(Some(dst), Value::RegisterPlusConstant64(src, insn.off as i64, true), 2, None);
                 },
                 ebpf::LD_W_REG   => {
-                    self.emit_ins(RISCVInstruction::load(OperandSize::S32, src, insn.off as i64, dst));
+                    self.emit_address_translation(Some(dst), Value::RegisterPlusConstant64(src, insn.off as i64, true), 4, None);
                 },
                 ebpf::LD_DW_REG  => {
-                    self.emit_ins(RISCVInstruction::load(OperandSize::S64, src, insn.off as i64, dst));
+                    self.emit_address_translation(Some(dst), Value::RegisterPlusConstant64(src, insn.off as i64, true), 8, None);
                 },
 
                 // BPF_ST class
                 ebpf::ST_B_IMM   => {
-                    self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.store(OperandSize::S8, dst, T1, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 1, Some(Value::Constant64(insn.imm, true)));
                 },
                 ebpf::ST_H_IMM   => {
-                    self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.store(OperandSize::S16, dst, T1, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 2, Some(Value::Constant64(insn.imm, true)));
                 },
                 ebpf::ST_W_IMM   => {
-                    self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.store(OperandSize::S32, dst, T1, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 4, Some(Value::Constant64(insn.imm, true)));
                 },
                 ebpf::ST_DW_IMM  => {
-                    self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.store(OperandSize::S64, dst, T1, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 8, Some(Value::Constant64(insn.imm, true)));
                 },
 
                 // BPF_STX class
                 ebpf::ST_B_REG  => {
-                    self.store(OperandSize::S8, dst, src, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 1, Some(Value::Register(src)));
                 },
                 ebpf::ST_H_REG  => {
-                    self.store(OperandSize::S16, dst, src, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 2, Some(Value::Register(src)));
                 },
                 ebpf::ST_W_REG  => {
-                    self.store(OperandSize::S32, dst, src, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 4, Some(Value::Register(src)));
                 },
                 ebpf::ST_DW_REG  => {
-                    self.store(OperandSize::S64, dst, src, insn.off as i64);
+                    self.emit_address_translation(None, Value::RegisterPlusConstant64(dst, insn.off as i64, true), 8, Some(Value::Register(src)));
                 },
 
                 // BPF_ALU class
@@ -503,7 +475,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.clear_low_32bits(dst);
                 }
                 ebpf::ADD32_REG  => {
-                    self.emit_ins(RISCVInstruction::add(OperandSize::S32, src, dst, dst));
+                    self.emit_ins(RISCVInstruction::addw(OperandSize::S32, src, dst, dst));
                     //清零高32位
                     self.clear_low_32bits(dst);
                 }
@@ -520,7 +492,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.clear_low_32bits(dst);
                 }
                 ebpf::SUB32_REG  => {
-                    self.emit_ins(RISCVInstruction::sub(OperandSize::S32, dst, src, dst));
+                    self.emit_ins(RISCVInstruction::subw(OperandSize::S32, dst, src, dst));
                     //清零高32位
                     self.clear_low_32bits(dst);
                 }
@@ -536,23 +508,29 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::DIV32_IMM | ebpf::UDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, T1, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::DIV32_REG | ebpf::UDIV32_REG => {
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, src, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::SDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, T1, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::SDIV32_REG => {
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, src, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::MOD32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::MOD32_REG => {
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
+                    self.clear_low_32bits(dst);
                 }
                 ebpf::OR32_IMM   => {
                     self.emit_sanitized_or(OperandSize::S32, dst, insn.imm);
@@ -574,23 +552,23 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.clear_low_32bits(dst);
                 }
                 ebpf::LSH32_IMM  => {
-                    self.emit_ins(RISCVInstruction::slli(OperandSize::S32, dst, insn.imm, dst));
-                    //清零高32位
+                    self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, dst, insn.imm, dst));
+                    // //清零高32位
                     self.clear_low_32bits(dst);
                 }
                 ebpf::LSH32_REG  => {
-                    self.emit_ins(RISCVInstruction::sll(OperandSize::S32, dst, src, dst));
-                    //清零高32位
+                    self.emit_ins(RISCVInstruction::sllw(OperandSize::S32, dst, src, dst));
+                    // //清零高32位
                     self.clear_low_32bits(dst);
                 }
                 ebpf::RSH32_IMM  => {
-                    self.emit_ins(RISCVInstruction::srli(OperandSize::S32, dst, insn.imm, dst));
-                    //清零高32位
+                    self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, insn.imm, dst));
+                    // //清零高32位
                     self.clear_low_32bits(dst);
                 }
                 ebpf::RSH32_REG  => {
-                    self.emit_ins(RISCVInstruction::srl(OperandSize::S32, dst, src, dst));
-                    //清零高32位
+                    self.emit_ins(RISCVInstruction::srlw(OperandSize::S32, dst, src, dst));
+                    // //清零高32位
                     self.clear_low_32bits(dst);
                 }
                 ebpf::NEG32     if self.executable.get_sbpf_version().enable_neg() => {
@@ -624,16 +602,20 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     println!("here9");
                 }//将一个寄存器中的值移动到另一个寄存器
                 ebpf::ARSH32_IMM => {
-                    self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
-                    self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, insn.imm + 32, dst));
-                    //清零高32位
+                    // self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
+                    // self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, insn.imm + 32, dst));
+                    // //清零高32位
+                    // self.clear_low_32bits(dst);
+                    self.emit_ins(RISCVInstruction::sraiw(OperandSize::S32, dst, insn.imm, dst));
                     self.clear_low_32bits(dst);
                 }
                 ebpf::ARSH32_REG => {
-                    self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
-                    self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, 32, dst));
-                    self.emit_ins(RISCVInstruction::sra(OperandSize::S32, dst, src, dst));
-                    //清零高32位
+                    // self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
+                    // self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, 32, dst));
+                    // self.emit_ins(RISCVInstruction::sra(OperandSize::S32, dst, src, dst));
+                    // //清零高32位
+                    // self.clear_low_32bits(dst);
+                    self.emit_ins(RISCVInstruction::sraw(OperandSize::S32, dst, src, dst));
                     self.clear_low_32bits(dst);
                 }
                 ebpf::LE if self.executable.get_sbpf_version().enable_le() => {
@@ -1248,7 +1230,90 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, T1, std::mem::size_of::<u64>() as i64);
     }
 
+    fn emit_result_is_err(&mut self, destination: u8) {
+        let ok = ProgramResult::Ok(0);
+        let ok_discriminant = ok.discriminant();
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, destination));
+        self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
+    }
+
+    #[inline]
+    fn emit_address_translation(&mut self, dst: Option<u8>, vm_addr: Value, len: u64, value: Option<Value>) {
+        debug_assert_ne!(dst.is_some(), value.is_some());
+
+        match vm_addr {
+            Value::RegisterPlusConstant64(reg, constant, user_provided) => {
+                if user_provided && self.should_sanitize_constant(constant) {
+                    self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_SCRATCH, constant);
+                } else {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, constant);
+                }
+                self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, REGISTER_SCRATCH, REGISTER_SCRATCH));
+            },
+            Value::Constant64(constant, user_provided) => {
+                if user_provided && self.should_sanitize_constant(constant) {
+                    self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_SCRATCH, constant);
+                } else {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, constant);
+                }
+            },
+            _ => {
+                #[cfg(debug_assertions)]
+                unreachable!();
+            },
+        }
+        
+        match value {
+            Some(Value::Register(reg)) => {
+                self.emit_ins(RISCVInstruction::mov(OperandSize::S64, reg, REGISTER_OTHER_SCRATCH));
+            }
+            Some(Value::Constant64(constant, user_provided)) => {
+                if user_provided && self.should_sanitize_constant(constant) {
+                    self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_OTHER_SCRATCH, constant);
+                } else {
+                    self.load_immediate(OperandSize::S64, REGISTER_OTHER_SCRATCH, constant);
+                }
+            }
+            _ => {}
+        }
+        
+        if self.config.enable_address_translation {
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+            self.store(OperandSize::S64, SP, RA, 0);
+            let access_type = if value.is_none() { AccessType::Load } else { AccessType::Store };
+            let anchor = ANCHOR_TRANSLATE_MEMORY_ADDRESS + len.trailing_zeros() as usize + 4 * (access_type as usize);
+            self.load_immediate(OperandSize::S64, T1, self.pc as i64);
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+            self.store(OperandSize::S64, SP, T1, 0);
+            
+            self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(anchor, 0), RA));
+            self.load(OperandSize::S64, SP, 0, RA);
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+            if let Some(dst) = dst {
+                self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_SCRATCH, dst));
+            }
+        } else if let Some(dst) = dst {
+            match len {
+                1 => self.load(OperandSize::S8, REGISTER_SCRATCH,0, dst),
+                2 => self.load(OperandSize::S16, REGISTER_SCRATCH, 0,dst),
+                4 => self.load(OperandSize::S32, REGISTER_SCRATCH, 0,dst),
+                8 => self.load(OperandSize::S64, REGISTER_SCRATCH, 0,dst),
+                _ => unreachable!(),
+            }
+        } else {
+            match len {
+                1 => self.store(OperandSize::S8, REGISTER_OTHER_SCRATCH, REGISTER_SCRATCH, 0),
+                2 => self.store(OperandSize::S16, REGISTER_OTHER_SCRATCH, REGISTER_SCRATCH, 0),
+                4 => self.store(OperandSize::S32, REGISTER_OTHER_SCRATCH, REGISTER_SCRATCH, 0),
+                8 => self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, REGISTER_SCRATCH, 0),
+                _ => unreachable!(),
+            }
+        }
+    }
+
     fn emit_subroutines(&mut self){
+        
         // Routine for instruction tracing
         // if self.config.enable_instruction_tracing {
         //     self.set_anchor(ANCHOR_TRACE);
@@ -1277,18 +1342,17 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             self.emit_ins(RISCVInstruction::sub(OperandSize::S64, REGISTER_INSTRUCTION_METER, REGISTER_SCRATCH, REGISTER_INSTRUCTION_METER));
             // REGISTER_INSTRUCTION_METER -= *PreviousInstructionMeter;
             self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::PreviousInstructionMeter) as i64, T5);
-            //self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::PreviousInstructionMeter) as i64, T5));
             self.emit_ins(RISCVInstruction::sub(OperandSize::S64, REGISTER_INSTRUCTION_METER, T5, REGISTER_INSTRUCTION_METER));
             // REGISTER_INSTRUCTION_METER = -REGISTER_INSTRUCTION_METER;
             self.emit_ins(RISCVInstruction::sub(OperandSize::S64, ZERO, REGISTER_INSTRUCTION_METER, REGISTER_INSTRUCTION_METER));
             // *DueInsnCount = REGISTER_INSTRUCTION_METER;
             self.store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_INSTRUCTION_METER, self.slot_in_vm(RuntimeEnvironmentSlot::DueInsnCount) as i64);
-            // self.emit_ins(RISCVInstruction::store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_INSTRUCTION_METER, self.slot_in_vm(RuntimeEnvironmentSlot::DueInsnCount) as i64));
         }
 
         // Restore stack pointer in case we did not exit gracefully
+        // self.load(OperandSize::S64, SP, 0, RA);
+        // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
         self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP);
-        // self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP));
         self.emit_ins(RISCVInstruction::return_near());
         
         // Handler for EbpfError::ExceededMaxInstructions
@@ -1297,21 +1361,121 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_INSTRUCTION_METER, REGISTER_SCRATCH)); // REGISTER_SCRATCH = REGISTER_INSTRUCTION_METER;
         // Fall through
 
+        // Epilogue for errors
+        self.set_anchor(ANCHOR_THROW_EXCEPTION_UNCHECKED);
+        self.store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_SCRATCH, (self.slot_in_vm(RuntimeEnvironmentSlot::Registers) + 11 * std::mem::size_of::<u64>() as i32) as i64); // registers[11] = pc;
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_EPILOGUE, 0), ZERO));
+
         // Quit gracefully
         self.set_anchor(ANCHOR_EXIT);
-        println!("1");
         self.emit_validate_instruction_count(false, None);
-        println!("2");
         self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
         self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, REGISTER_OTHER_SCRATCH));
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, REGISTER_MAP[0], std::mem::size_of::<u64>() as i64);
         self.emit_ins(RISCVInstruction::mov(OperandSize::S64, ZERO,  REGISTER_MAP[0]));
-        // self.load_immediate(OperandSize::S64, T1, self.relative_to_anchor(ANCHOR_EPILOGUE, 0));
-        // self.emit_ins(RISCVInstruction::add(OperandSize::S64, source1, T1, T1));
-        // self.emit_ins(RISCVInstruction::jalr(T1, 0, ZERO));
-        // self.jalr(OperandSize::S64, ZERO,self.relative_to_anchor(ANCHOR_EPILOGUE, 0), ZERO);
-        println!("self.relative_to_anchor(ANCHOR_EPILOGUE, 0):{:?}",self.relative_to_anchor(ANCHOR_EPILOGUE, 0));
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_EPILOGUE, 0), ZERO));
+    
+        // Handler for exceptions which report their pc
+        self.set_anchor(ANCHOR_THROW_EXCEPTION);
+        // Validate that we did not reach the instruction meter limit before the exception occured
+        self.emit_validate_instruction_count(false, None);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION_UNCHECKED, 0), ZERO));
+
+        // Handler for EbpfError::CallDepthExceeded
+        self.set_anchor(ANCHOR_CALL_DEPTH_EXCEEDED);
+        self.emit_set_exception_kind(EbpfError::CallDepthExceeded);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+        
+        // Handler for EbpfError::CallOutsideTextSegment
+        self.set_anchor(ANCHOR_CALL_OUTSIDE_TEXT_SEGMENT);
+        self.emit_set_exception_kind(EbpfError::CallOutsideTextSegment);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+
+        // Handler for EbpfError::DivideByZero
+        self.set_anchor(ANCHOR_DIV_BY_ZERO);
+        self.emit_set_exception_kind(EbpfError::DivideByZero);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+
+        // Handler for EbpfError::DivideOverflow
+        self.set_anchor(ANCHOR_DIV_OVERFLOW);
+        self.emit_set_exception_kind(EbpfError::DivideOverflow);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+
+        // Handler for EbpfError::UnsupportedInstruction
+        self.set_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION);
+        //TODO if self.config.enable_instruction_tracing 
+        self.emit_set_exception_kind(EbpfError::UnsupportedInstruction);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+
+
+        // Translates a vm memory address to a host memory address
+        // 内存地址翻译子程序
+        for (access_type, len) in &[
+            (AccessType::Load, 1i32),
+            (AccessType::Load, 2i32),
+            (AccessType::Load, 4i32),
+            (AccessType::Load, 8i32),
+            (AccessType::Store, 1i32),
+            (AccessType::Store, 2i32),
+            (AccessType::Store, 4i32),
+            (AccessType::Store, 8i32),
+        ] {
+            let target_offset = len.trailing_zeros() as usize + 4 * (*access_type as usize);
+            self.set_anchor(ANCHOR_TRANSLATE_MEMORY_ADDRESS + target_offset);
+            // call MemoryMapping::(load|store) storing the result in RuntimeEnvironmentSlot::ProgramResult
+            if *access_type == AccessType::Load {
+                let load = match len {
+                    1 => MemoryMapping::load::<u8> as *const u8 as i64,
+                    2 => MemoryMapping::load::<u16> as *const u8 as i64,
+                    4 => MemoryMapping::load::<u32> as *const u8 as i64,
+                    8 => MemoryMapping::load::<u64> as *const u8 as i64,
+                    _ => unreachable!()
+                };
+                self.emit_rust_call(Value::Constant64(load, false), &[
+                    Argument { index: 2, value: Value::Register(REGISTER_SCRATCH) }, // Specify first as the src register could be overwritten by other arguments
+                    Argument { index: 3, value: Value::Constant64(0, false) }, // self.pc is set later
+                    Argument { index: 1, value: Value::RegisterPlusConstant32(REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::MemoryMapping), false) },
+                    Argument { index: 0, value: Value::RegisterPlusConstant32(REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult), false) },
+                ], None);
+            } else {
+                let store = match len {
+                    1 => MemoryMapping::store::<u8> as *const u8 as i64,
+                    2 => MemoryMapping::store::<u16> as *const u8 as i64,
+                    4 => MemoryMapping::store::<u32> as *const u8 as i64,
+                    8 => MemoryMapping::store::<u64> as *const u8 as i64,
+                    _ => unreachable!()
+                };
+                self.emit_rust_call(Value::Constant64(store, false), &[
+                    Argument { index: 3, value: Value::Register(REGISTER_SCRATCH) }, // Specify first as the src register could be overwritten by other arguments
+                    Argument { index: 2, value: Value::Register(REGISTER_OTHER_SCRATCH) },
+                    Argument { index: 4, value: Value::Constant64(0, false) }, // self.pc is set later
+                    Argument { index: 1, value: Value::RegisterPlusConstant32(REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::MemoryMapping), false) },
+                    Argument { index: 0, value: Value::RegisterPlusConstant32(REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult), false) },
+                ], None);
+            }
+
+            // Throw error if the result indicates one
+            // self.emit_result_is_err(REGISTER_SCRATCH);
+            let ok = ProgramResult::Ok(0);
+            let ok_discriminant = ok.discriminant();
+            self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, RA, REGISTER_SCRATCH));
+            self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
+
+            self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_SCRATCH, T4));
+            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, SP, REGISTER_SCRATCH));
+            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T4, SP));
+
+            
+            self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T5, T1, self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0)));
+
+            // unwrap() the result into REGISTER_SCRATCH
+            self.load(OperandSize::S64, REGISTER_PTR_TO_VM, (self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) + std::mem::size_of::<u64>() as i32) as i64,REGISTER_SCRATCH);
+
+            self.emit_ins(RISCVInstruction::return_near());
+        }
     }
 
     fn set_anchor(&mut self, anchor: usize) {
@@ -1344,7 +1508,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         (unsafe { destination.offset_from(instruction_end) } as i32) // Relative jump
     }
 
-    fn emit_rust_call(&mut self, target: Value, arguments: &[Argument], result_reg: Option<u8>,current_offset: &mut i64) {
+    fn emit_rust_call(&mut self, target: Value, arguments: &[Argument], result_reg: Option<u8>){
         let mut saved_registers = CALLER_SAVED_REGISTERS.to_vec();
         if let Some(reg) = result_reg {
             if let Some(dst) = saved_registers.iter().position(|x| *x == reg) {
@@ -1355,10 +1519,33 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Save registers on stack
         let saved_registers_len = saved_registers.len();
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8 * saved_registers_len as i64, SP));
-        *current_offset += 8;
+        let mut current_offset = 0;
         for reg in saved_registers.iter() {
-            self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, *reg, *current_offset));
-            *current_offset += 8;
+            self.store(OperandSize::S64, SP, *reg, current_offset);
+            current_offset += 8;
+        }
+
+        // Align RSP to 16 bytes
+        // if current_offset % 16 != 0 {
+        //     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+        // }
+        // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, SP, T5));
+        
+        // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -16, SP));
+        // self.store(OperandSize::S64, T5, SP, 0);
+        // self.load(OperandSize::S64, SP, 0, T5);
+        // self.store(OperandSize::S64, SP, T5, 8);
+        // self.emit_ins(RISCVInstruction::andi(OperandSize::S64, SP, -16, SP));
+        // self.emit_ins(X86Instruction::push(RSP, None));
+        // self.emit_ins(X86Instruction::push(RSP, Some(X86IndirectAccess::OffsetIndexShift(0, RSP, 0))));
+        // self.emit_ins(X86Instruction::alu(OperandSize::S64, 0x81, 4, RSP, -16, None)); //RSP &= -16
+
+        let stack_arguments = arguments.len().saturating_sub(ARGUMENT_REGISTERS.len()) as i64;
+        if stack_arguments % 2 != 0 {
+            // If we're going to pass an odd number of stack args we need to pad
+            // to preserve alignment
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+            // self.emit_ins(X86Instruction::alu(OperandSize::S64, 0x81, 5, RSP, 8, None));
         }
 
         // Pass arguments
@@ -1372,8 +1559,8 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             match argument.value {
                 Value::Register(reg) => {
                     if is_stack_argument {
-                        *current_offset += 8;
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, reg, *current_offset));
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                        self.store(OperandSize::S64, SP, reg, 0);
                     } else if reg != dst {
                         self.emit_ins(RISCVInstruction::mov(OperandSize::S64, reg, dst));
                     }
@@ -1381,31 +1568,34 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 Value::RegisterIndirect(reg, offset, user_provided) => {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, reg, offset as i64));
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                        self.store(OperandSize::S64, SP, reg, offset as i64);//有问题
                     } else {
-                        self.emit_ins(RISCVInstruction::load(OperandSize::S64, reg, offset as i64,dst));
+                        self.load(OperandSize::S64, reg, offset as i64,dst);
                     }
                 },
                 Value::RegisterPlusConstant32(reg, offset, user_provided) => {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
-                        *current_offset += 8;
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, reg, *current_offset));
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, SP, offset as i64));
-                        
+                        self.store(OperandSize::S64, SP, reg, current_offset);
+                        current_offset += 8;
+                        self.load_immediate(OperandSize::S64, T1, offset as i64 + SP as i64);
+                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, SP, T1, SP));
                     } else {
-                        self.emit_ins(RISCVInstruction::load(OperandSize::S64, reg, offset as i64,dst));
+                        self.load_immediate(OperandSize::S64, T1, offset as i64);
+                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, T1, dst));
                     }
                 },
                 Value::RegisterPlusConstant64(reg, offset, user_provided) => {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
-                        *current_offset += 8;
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, reg, *current_offset));
-                        self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, SP, offset));
+                        self.store(OperandSize::S64, SP, reg, current_offset);
+                        current_offset += 8;
+                        self.load_immediate(OperandSize::S64, T1, offset as i64 + SP as i64);
+                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, SP, T1, SP));
                     } else {
-                        self.load_immediate(OperandSize::S64, dst, offset);
-                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, dst, dst));
+                        self.load_immediate(OperandSize::S64, T1, offset as i64);
+                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, T1, dst));
                     }
                 },
                 Value::Constant64(value, user_provided) => {
@@ -1413,25 +1603,46 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.load_immediate(OperandSize::S64, dst, value);
                 },
             }
-
-            match target {
-                Value::Register(reg) => {
-                    self.emit_ins(RISCVInstruction::jalr(reg, 0, reg));
-                },
-                Value::Constant64(value, user_provided) => {
-                    debug_assert!(!user_provided);
-                    self.load_immediate(OperandSize::S64, RA, value);
-                    self.emit_ins(RISCVInstruction::jalr(RA, 0, RA));
-                },
-                _ => {
-                    #[cfg(debug_assertions)]
-                    unreachable!();
-                }
-            }
-
-            //TODO Save returned value in result register
-            //TODO Restore registers from stack
         }
+        match target {
+            Value::Register(reg) => {
+                // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                // self.store(OperandSize::S64, SP, RA, 0);
+                self.emit_ins(RISCVInstruction::jalr(reg, 0, RA));
+                // self.load(OperandSize::S64, SP, 0, RA);
+                // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+            },
+            Value::Constant64(value, user_provided) => {
+                debug_assert!(!user_provided);
+                // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                // self.store(OperandSize::S64, SP, RA, 0);
+                self.load_immediate(OperandSize::S64, T1, value);
+                self.emit_ins(RISCVInstruction::jalr(T1, 0, RA));
+                // self.load(OperandSize::S64, SP, 0, RA);
+                // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+            },
+            _ => {
+                #[cfg(debug_assertions)]
+                unreachable!();
+            }
+        }
+
+        // Save returned value in result register
+        if let Some(reg) = result_reg {
+            self.emit_ins(RISCVInstruction::mov(OperandSize::S64, reg, A0));
+        }
+
+        // Restore registers from stack
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, if stack_arguments % 2 != 0 { stack_arguments + 1 } else { stack_arguments } * 8, SP));
+        // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 16, SP));
+        // self.load(OperandSize::S64, SP, 8,SP );//???这有什么作用？
+
+        let mut current_offset = 0;
+        for reg in saved_registers.iter() {
+            self.load(OperandSize::S64, SP, current_offset, *reg);
+            current_offset += 8;
+        }
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8 * saved_registers_len as i64, SP));
     }
 
 }
