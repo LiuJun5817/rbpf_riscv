@@ -3,7 +3,17 @@
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+#[cfg(not(feature = "shuttle-test"))]
+use rand::{thread_rng, Rng};
+
+#[cfg(feature = "shuttle-test")]
+use shuttle::rand::{thread_rng, Rng};
+
+use rand::{
+    distributions::{Distribution, Uniform},
+    rngs::SmallRng,
+    SeedableRng,
+};
 use std::io::Write;
 use std::mem::offset_of;
 use std::{fmt::Debug, mem, ptr};
@@ -244,23 +254,23 @@ const ANCHOR_TRANSLATE_MEMORY_ADDRESS: usize = 21;
 const ANCHOR_COUNT: usize = 30; // Update me when adding or removing anchors
 
 const REGISTER_MAP: [u8; 11] = [
-    CALLER_SAVED_REGISTERS[4], //a0 //T6
-    ARGUMENT_REGISTERS[1],     //a2 //A1
-    ARGUMENT_REGISTERS[2],     //a1 //A2
-    ARGUMENT_REGISTERS[3],     //t6 //A3
+    CALLER_SAVED_REGISTERS[4], //a0
+    ARGUMENT_REGISTERS[1],     //a1
+    ARGUMENT_REGISTERS[2],     //a2
+    ARGUMENT_REGISTERS[3],     //a3
     ARGUMENT_REGISTERS[4],     //a4
     ARGUMENT_REGISTERS[5],     //a5
     CALLEE_SAVED_REGISTERS[2], //s2
     CALLEE_SAVED_REGISTERS[3], //s3
     CALLEE_SAVED_REGISTERS[4], //s4
     CALLEE_SAVED_REGISTERS[5], //s5
-    CALLEE_SAVED_REGISTERS[0], //s1 //S0
+    CALLEE_SAVED_REGISTERS[0], //S0
 ];
 
 /// A3: Used together with slot_in_vm()
 // const REGISTER_PTR_TO_VM: u8 = ARGUMENT_REGISTERS[0];//A0
 const REGISTER_PTR_TO_VM: u8 = T6;
-/// S0: Program counter limit
+/// S1: Program counter limit
 const REGISTER_INSTRUCTION_METER: u8 = CALLEE_SAVED_REGISTERS[1]; //S1
 /// A6: Other scratch register
 const REGISTER_OTHER_SCRATCH: u8 = CALLER_SAVED_REGISTERS[7];
@@ -322,6 +332,7 @@ pub struct JitCompiler<'a, C: ContextObject> {
     pc: usize,
     last_instruction_meter_validation_pc: usize,
     next_noop_insertion: u32,
+    noop_range: Uniform<u32>,
     runtime_environment_key: i32,
     diversification_rng: SmallRng,
     stopwatch_is_active: bool,
@@ -358,7 +369,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Relative jump destinations limit the maximum output size
         debug_assert!(code_length_estimate < (i32::MAX as usize));
 
-        let runtime_environment_key = get_runtime_environment_key();//TODO
+        let runtime_environment_key = get_runtime_environment_key();
         // let runtime_environment_key:i32 = 0;
         let mut diversification_rng = SmallRng::from_rng(rand::thread_rng()).map_err(|_| EbpfError::JitNotCompiled)?;
         
@@ -374,6 +385,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             pc: 0,
             last_instruction_meter_validation_pc: 0,
             next_noop_insertion: if config.noop_instruction_rate == 0 { u32::MAX } else { diversification_rng.gen_range(0..config.noop_instruction_rate * 2) },
+            noop_range: Uniform::new_inclusive(0, config.noop_instruction_rate * 2),
             runtime_environment_key,
             diversification_rng,
             stopwatch_is_active: false,
@@ -415,7 +427,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
 
                 ebpf::LD_DW_IMM if self.executable.get_sbpf_version().enable_lddw() => {
-                    self.emit_validate_and_profile_instruction_count(true, Some(self.pc + 2));
+                    self.emit_validate_and_profile_instruction_count(false,true, Some(self.pc + 2));
                     self.pc += 1;
                     self.result.pc_section[self.pc] = self.anchors[ANCHOR_CALL_UNSUPPORTED_INSTRUCTION] as usize;
                     ebpf::augment_lddw_unchecked(self.program, &mut insn);
@@ -472,12 +484,12 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::ADD32_IMM  => {
                     self.emit_sanitized_add(OperandSize::S32, dst, insn.imm);
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::ADD32_REG  => {
                     self.emit_ins(RISCVInstruction::addw(OperandSize::S32, src, dst, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SUB32_IMM  =>{
                     if self.executable.get_sbpf_version().swap_sub_reg_imm_operands() {
@@ -489,102 +501,102 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                         self.emit_sanitized_sub(OperandSize::S32, dst, insn.imm);
                     }
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SUB32_REG  => {
                     self.emit_ins(RISCVInstruction::subw(OperandSize::S32, dst, src, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MUL32_IMM | ebpf::LMUL32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, T1, src, dst));
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MUL32_REG | ebpf::LMUL32_REG => {
                     self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, dst, src, dst));
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::DIV32_IMM | ebpf::UDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, T1, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::DIV32_REG | ebpf::UDIV32_REG => {
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, src, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, T1, dst));
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_REG => {
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, src, dst));
-                    self.clear_low_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
-                ebpf::MOD32_IMM => {
+                ebpf::MOD32_IMM if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
-                ebpf::MOD32_REG => {
+                ebpf::MOD32_REG if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::OR32_IMM   => {
                     self.emit_sanitized_or(OperandSize::S32, dst, insn.imm);
                     //清零高32位
-                    self.clear_low_32bits(dst);}
+                    self.clear_high_32bits(dst);}
                 ebpf::OR32_REG   => {
                     self.emit_ins(RISCVInstruction::or(OperandSize::S32, dst, src, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::AND32_IMM  => {
                     self.emit_sanitized_and(OperandSize::S32, dst, insn.imm);
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::AND32_REG  => {
                     self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, src, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::LSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::LSH32_REG  => {
                     self.emit_ins(RISCVInstruction::sllw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_REG  => {
                     self.emit_ins(RISCVInstruction::srlw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::NEG32     if self.executable.get_sbpf_version().enable_neg() => {
                     self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::XOR32_IMM  => {
                     self.emit_sanitized_xor(OperandSize::S32, dst, insn.imm);
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::XOR32_REG  => {
                     self.emit_ins(RISCVInstruction::xor(OperandSize::S32, dst, src, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::MOV32_IMM  => {
                     if self.should_sanitize_constant(insn.imm) {//检查立即数是否需要进行安全处理，防止可能的安全漏洞 
@@ -593,30 +605,21 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                         self.load_immediate(OperandSize::S32, dst, insn.imm);
                     }
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::MOV32_REG  => {println!("here8");
                     self.emit_ins(RISCVInstruction::mov(OperandSize::S32, src, dst));
                     //清零高32位
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                     println!("here9");
                 }//将一个寄存器中的值移动到另一个寄存器
                 ebpf::ARSH32_IMM => {
-                    // self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
-                    // self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, insn.imm + 32, dst));
-                    // //清零高32位
-                    // self.clear_low_32bits(dst);
                     self.emit_ins(RISCVInstruction::sraiw(OperandSize::S32, dst, insn.imm, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::ARSH32_REG => {
-                    // self.emit_ins(RISCVInstruction::slli(OperandSize::S64, dst, 32, dst));
-                    // self.emit_ins(RISCVInstruction::srai(OperandSize::S32, dst, 32, dst));
-                    // self.emit_ins(RISCVInstruction::sra(OperandSize::S32, dst, src, dst));
-                    // //清零高32位
-                    // self.clear_low_32bits(dst);
                     self.emit_ins(RISCVInstruction::sraw(OperandSize::S32, dst, src, dst));
-                    self.clear_low_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::LE if self.executable.get_sbpf_version().enable_le() => {
                     match insn.imm {
@@ -718,99 +721,204 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::HOR64_IMM if !self.executable.get_sbpf_version().enable_lddw() => {
                     self.emit_sanitized_or(OperandSize::S64, dst, (insn.imm as u64).wrapping_shl(32) as i64);
                 }
-                // TODO // BPF_PQR class
 
                 // BPF_JMP class
                 ebpf::JA         => {
-                    self.emit_validate_and_profile_instruction_count(false, Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(false,true, Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
-                    let jump_offset = self.relative_to_target_pc(target_pc, 4);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::jal(jump_offset as i64, ZERO));
                 },
                 // Jump if Equal
                 ebpf::JEQ_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64,T1, dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64,T1, dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JEQ_REG    => self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src,dst,  target_pc as i64)),
+                ebpf::JEQ_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src,dst,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                }
                 //Jump if Greater Than
                 ebpf::JGT_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, T1,dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, T1,dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JGT_REG    => self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, src,dst,  target_pc as i64)),
+                ebpf::JGT_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, src,dst,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                }
                 //Jump if Greater or Equal
                 ebpf::JGE_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64,dst, T1, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64,dst, T1, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JGE_REG    => self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64,dst, src,  target_pc as i64)),
+                ebpf::JGE_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64,dst, src,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                }
                 //Jump if less Than
                 ebpf::JLT_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst,T1, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst,T1, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JLT_REG    => self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst, src, target_pc as i64)),
+                ebpf::JLT_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst, src, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                }
                 //Jump if less or Equal
                 ebpf::JLE_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, T1,dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, T1,dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JLE_REG    => self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, src, dst, target_pc as i64)),
+                ebpf::JLE_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, src, dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 //Jump if Bitwise AND is Non-Zero
                 ebpf::JSET_IMM   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     self.emit_ins(RISCVInstruction::and(OperandSize::S64, T1, dst, T1));
-                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, ZERO, target_pc as i64));
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, ZERO, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSET_REG   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     self.emit_ins(RISCVInstruction::and(OperandSize::S64, src, dst, T1));
-                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, ZERO, target_pc as i64));
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, ZERO, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
                 // Jump if Not Equal
                 ebpf::JNE_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,T1, dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JNE_REG    => self.emit_ins(RISCVInstruction::bne(OperandSize::S64, src,dst,  target_pc as i64)),
+                ebpf::JNE_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64, src,dst,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 
                 //Jump if Greater Than Signed
                 ebpf::JSGT_IMM   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::blt(OperandSize::S64, T1,dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::blt(OperandSize::S64, T1,dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JSGT_REG   => self.emit_ins(RISCVInstruction::blt(OperandSize::S64, src,dst,  target_pc as i64)),
+                ebpf::JSGT_REG   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::blt(OperandSize::S64, src,dst,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 //Jump if Greater or Equal Signed
                 ebpf::JSGE_IMM   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64,dst, T1, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64,dst, T1, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JSGE_REG   => self.emit_ins(RISCVInstruction::bge(OperandSize::S64,dst, src,  target_pc as i64)),
+                ebpf::JSGE_REG   => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64,dst, src,  jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 //Jump if less Than
                 ebpf::JSLT_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst,T1, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::blt(OperandSize::S64, dst,T1, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JSLT_REG    => self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst, src, target_pc as i64)),
+                ebpf::JSLT_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::blt(OperandSize::S64, dst, src, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 //Jump if less or Equal Signed
                 ebpf::JSLE_IMM    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64, T1,dst, target_pc as i64));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64, T1,dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
                 },
-                ebpf::JSLE_REG    => self.emit_ins(RISCVInstruction::bge(OperandSize::S64, src, dst, target_pc as i64)),
+                ebpf::JSLE_REG    => {
+                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
+                    let jump_offset = self.relative_to_target_pc(target_pc, 0);
+                    self.emit_ins(RISCVInstruction::bge(OperandSize::S64, src, dst, jump_offset as i64));
+                    self.emit_undo_profile_instruction_count(target_pc);
+                },
                 //TODO ebpf::CALL_IMM
                 //TODO ebpf::CALL_REG
 
                 ebpf::EXIT      =>{println!("here6");
                     let call_depth_access=self.slot_in_vm(RuntimeEnvironmentSlot::CallDepth) as i64;
                     self.load(OperandSize::S64, REGISTER_PTR_TO_VM, call_depth_access, REGISTER_MAP[FRAME_PTR_REG]);
-                    // self.emit_ins(RISCVInstruction::load(OperandSize::S64, REGISTER_PTR_TO_VM, call_depth_access, REGISTER_MAP[FRAME_PTR_REG]));
                 
                     // If CallDepth == 0, we've reached the exit instruction of the entry point
                     if self.config.enable_instruction_meter {
                         self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     }
-                    //TODO这里为什么偏移 要设置为 0
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S32, REGISTER_MAP[FRAME_PTR_REG], ZERO, self.relative_to_anchor(ANCHOR_EXIT, 0)));
                     // we're done
 
@@ -841,18 +949,20 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.offset_in_text_section + MAX_MACHINE_CODE_LENGTH_PER_INSTRUCTION > self.result.text_section.len() {
             return Err(EbpfError::ExhaustedTextSegment(self.pc));
         }   
-        // self.emit_set_exception_kind(EbpfError::ExecutionOverrun);//输出了三句x86指令
-        // self.emit_ins(X86Instruction::jump_immediate(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 5)));
-        // self.resolve_jumps();//处理跳转和生成最终结果
+        self.emit_validate_and_profile_instruction_count(false,true, Some(self.pc + 2));
+        self.emit_set_exception_kind(EbpfError::ExecutionOverrun);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
+
+        self.resolve_jumps();
         self.result.seal(self.offset_in_text_section)?;
         Ok(self.result)
     }
 
     #[inline]
-    fn emit_validate_and_profile_instruction_count(&mut self, exclusive: bool, target_pc: Option<usize>) {
+    fn emit_validate_and_profile_instruction_count(&mut self, exclusive: bool, user_provided: bool, target_pc: Option<usize>) {
         if self.config.enable_instruction_meter {
             self.emit_validate_instruction_count(exclusive, Some(self.pc));
-            self.emit_profile_instruction_count(target_pc);
+            self.emit_profile_instruction_count(user_provided,target_pc);
         }
     }
 
@@ -924,7 +1034,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     // }
 
     ///清零高32位
-    pub fn clear_low_32bits(&mut self,destination: u8) {
+    pub fn clear_high_32bits(&mut self,destination: u8) {
         self.emit_ins(RISCVInstruction::slli(OperandSize::S64, destination, 32, destination));
         self.emit_ins(RISCVInstruction::srli(OperandSize::S64, destination, 32, destination));
     }
@@ -1190,10 +1300,10 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Update `MACHINE_CODE_PER_INSTRUCTION_METER_CHECKPOINT` if you change the code generation here
         if let Some(pc) = pc {
             self.last_instruction_meter_validation_pc = pc;
-            self.emit_ins(RISCVInstruction::mov(OperandSize::S64, ZERO, T0));
-            self.emit_sanitized_add(OperandSize::S64, T5, pc as i64 + 1);
+            self.emit_ins(RISCVInstruction::mov(OperandSize::S64, ZERO, T5));
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T5, pc as i64 + 1, T5));
             println!("heeeee");
-            self.emit_ins(RISCVInstruction::bge(OperandSize::S64, REGISTER_INSTRUCTION_METER, T0, self.relative_to_anchor(ANCHOR_THROW_EXCEEDED_MAX_INSTRUCTIONS, 0)));
+            self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, REGISTER_INSTRUCTION_METER, T5, self.relative_to_anchor(ANCHOR_THROW_EXCEEDED_MAX_INSTRUCTIONS, 0)));
         } else {
             println!("hhhhheeee");
             //无符号r11 <= rbx
@@ -1202,16 +1312,18 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 
     #[inline]
-    fn emit_profile_instruction_count(&mut self, target_pc: Option<usize>) {
+    fn emit_profile_instruction_count(&mut self, user_provided: bool, target_pc: Option<usize>) {
         match target_pc {
             Some(target_pc) => {
-                self.emit_sanitized_add(OperandSize::S64, T5, target_pc as i64 - self.pc as i64 - 1);
-                self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_INSTRUCTION_METER, T0, REGISTER_INSTRUCTION_METER));
+                let immediate = target_pc as i64 - self.pc as i64 - 1;
+                if user_provided {
+                    self.emit_sanitized_add(OperandSize::S64, REGISTER_INSTRUCTION_METER, immediate);
+                } else {
+                    self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_INSTRUCTION_METER, immediate, REGISTER_INSTRUCTION_METER));
+                }
             },
             None => {
-                self.emit_sanitized_add(OperandSize::S64, T5, self.pc as i64 + 1);
-                self.emit_ins(RISCVInstruction::sub(OperandSize::S64, REGISTER_INSTRUCTION_METER, T5, REGISTER_INSTRUCTION_METER));
-                self.emit_sanitized_add(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_INSTRUCTION_METER, -(self.pc as i64 + 1), REGISTER_INSTRUCTION_METER));
                 self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_SCRATCH, REGISTER_INSTRUCTION_METER, REGISTER_INSTRUCTION_METER));
             }
         }
@@ -1350,8 +1462,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         }
 
         // Restore stack pointer in case we did not exit gracefully
-        // self.load(OperandSize::S64, SP, 0, RA);
-        // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+        
         self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP);
         self.emit_ins(RISCVInstruction::return_near());
         
@@ -1498,14 +1609,25 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         let instruction_end = unsafe { self.result.text_section.as_ptr().add(self.offset_in_text_section).add(instruction_length) };
         let destination = if self.result.pc_section[target_pc] != 0 {
             // Backward jump
+            println!("back!");
             self.result.pc_section[target_pc] as *const u8
         } else {
+            println!("Forward!");
             // Forward jump, needs relocation
-            self.text_section_jumps.push(Jump { location: unsafe { instruction_end.sub(4) }, target_pc });
+            self.text_section_jumps.push(Jump { location: unsafe { instruction_end.sub(0) }, target_pc });
             return 0;
         };
+        println!("relative_to_target_pc destination:{:?}",destination);
         debug_assert!(!destination.is_null());
         (unsafe { destination.offset_from(instruction_end) } as i32) // Relative jump
+    }
+
+    #[inline]
+    fn emit_undo_profile_instruction_count(&mut self, target_pc: usize) {
+        if self.config.enable_instruction_meter {
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_INSTRUCTION_METER, self.pc as i64 + 1 - target_pc as i64, REGISTER_INSTRUCTION_METER));
+            // instruction_meter += (self.pc + 1) - target_pc;
+        }
     }
 
     fn emit_rust_call(&mut self, target: Value, arguments: &[Argument], result_reg: Option<u8>){
@@ -1645,4 +1767,65 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8 * saved_registers_len as i64, SP));
     }
 
+    fn resolve_jumps(&mut self) {
+        // Relocate forward jumps
+        for jump in &self.text_section_jumps {
+            let destination = self.result.pc_section[jump.target_pc] as *const u8;
+            println!("jump.location:{:?}",jump.location);
+            println!("des:{:?}",destination);
+            // println!("destination.offset_from(jump.location):{:?}",destination.offset_from(jump.location));
+            let offset_value = 
+                unsafe { destination.offset_from(jump.location) } as i32 ;// Relative jump
+                // - mem::size_of::<i32>() as i32; // Jump from end of instruction
+            println!("offset_value:{:?}",offset_value);
+            let address: *const u32 = jump.location as *const u32;  // 这里是你的示例地址
+    
+            unsafe {
+                // 从指定的地址读取4个字节的指令
+                let original_instruction = *address;
+                
+                // 输出机器码，保持8位十六进制格式，和gdb一致
+                println!("original_instruction at address 0x7ffff7fd17d0: 0x{:08x}", original_instruction);
+                let op = original_instruction & 0x7f;
+                if op != 0x6f as u32 {
+                    // B 型指令（Branch）
+                    let imm_11 = (offset_value & 0x800) >> 4; // 提取立即数第 12 位，移动到 bit[7]
+                    let imm_4_1 = (offset_value & 0x1E) << 7; // 提取立即数 bit[1:4]，移动到 bit[8:11]
+                    let imm_10_5 = (offset_value & 0x7E0) << 20; // 提取立即数 bit[5:10]，移动到 bit[25:30]
+                    let imm_12 = (offset_value & 0x1000) << 19; // 提取立即数 bit[12]，移动到 bit[31]
+                    let rs2_rs1_funct3 = (original_instruction & 0x1FFF000) as i32;
+                    let opcode = (original_instruction & 0x7F) as i32;
+                    let instruction = imm_12 | imm_10_5 | rs2_rs1_funct3 | imm_4_1 | imm_11 | opcode;
+                    unsafe { ptr::write_unaligned(jump.location as *mut i32, instruction); }
+                } else {
+                    // J 型指令 (Jump)
+                    let imm_19_12 = offset_value & 0xFF000; // 提取立即数 bit[12:19]
+                    let imm_11 = (offset_value & 0x800) << 9; // 提取立即数 bit[11]
+                    let imm_10_1 = (offset_value & 0x7FE) << 20; // 提取立即数 bit[1:10]
+                    let imm_20 = (offset_value & 0x100000) << 11; // 提取立即数 bit[20]
+                    let rd = 0;
+                    let opcode = 0x6f & 0x7F;
+                    let instruction= imm_20 | imm_10_1 | imm_11 | imm_19_12 | rd | opcode;
+                    unsafe { ptr::write_unaligned(jump.location as *mut i32, instruction); }
+                }
+            }         
+        }
+        // There is no `VerifierError::JumpToMiddleOfLDDW` for `call imm` so patch it here
+        let call_unsupported_instruction = self.anchors[ANCHOR_CALL_UNSUPPORTED_INSTRUCTION] as usize;
+        if self.executable.get_sbpf_version().static_syscalls() {
+            let mut prev_pc = 0;
+            for current_pc in self.executable.get_function_registry().keys() {
+                if current_pc as usize >= self.result.pc_section.len() {
+                    break;
+                }
+                for pc in prev_pc..current_pc as usize {
+                    self.result.pc_section[pc] = call_unsupported_instruction;
+                }
+                prev_pc = current_pc as usize + 1;
+            }
+            for pc in prev_pc..self.result.pc_section.len() {
+                self.result.pc_section[pc] = call_unsupported_instruction;
+            }
+        }
+    }
 }

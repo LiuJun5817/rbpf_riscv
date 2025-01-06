@@ -382,7 +382,7 @@ fn test_lmul128() {
         TestContextObject::new(42),
         ProgramResult::Ok(600),
     );
-} //错在stxdw [r1+0x8], r5
+}
 
 //#[test]
 fn test_alu32_logic() {
@@ -983,6 +983,460 @@ fn test_early_exit() {
     );
 }
 
+fn test_ja() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov r0, 1
+        ja +1
+        mov r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(3),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+fn test_jeq_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xa
+        jeq r1, 0xb, +4
+        mov32 r0, 1
+        mov32 r1, 0xb
+        jeq r1, 0xb, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jeq_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xa
+        mov32 r2, 0xb
+        jeq r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0xb
+        jeq r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jge_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xa
+        jge r1, 0xb, +4
+        mov32 r0, 1
+        mov32 r1, 0xc
+        jge r1, 0xb, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jge_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xa
+        mov32 r2, 0xb
+        jge r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0xb
+        jge r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+fn test_jle_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 5
+        jle r1, 4, +1
+        jle r1, 6, +1
+        exit
+        jle r1, 5, +1
+        exit
+        mov32 r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jle_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        jle r1, r2, +2
+        jle r1, r1, +1
+        exit
+        jle r1, r3, +1
+        exit
+        mov r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(9),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jgt_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 5
+        jgt r1, 6, +2
+        jgt r1, 5, +1
+        jgt r1, 4, +1
+        exit
+        mov32 r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jgt_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov r0, 0
+        mov r1, 5
+        mov r2, 6
+        mov r3, 4
+        jgt r1, r2, +2
+        jgt r1, r1, +1
+        jgt r1, r3, +1
+        exit
+        mov r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(9),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jlt_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 5
+        jlt r1, 4, +2
+        jlt r1, 5, +1
+        jlt r1, 6, +1
+        exit
+        mov32 r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jlt_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov r0, 0
+        mov r1, 5
+        mov r2, 4
+        mov r3, 6
+        jlt r1, r2, +2
+        jlt r1, r1, +1
+        jlt r1, r3, +1
+        exit
+        mov r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(9),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jne_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xb
+        jne r1, 0xb, +4
+        mov32 r0, 1
+        mov32 r1, 0xa
+        jne r1, 0xb, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jne_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0xb
+        mov32 r2, 0xb
+        jne r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0xa
+        jne r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jset_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0x7
+        jset r1, 0x8, +4
+        mov32 r0, 1
+        mov32 r1, 0x9
+        jset r1, 0x8, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jset_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov32 r1, 0x7
+        mov32 r2, 0x8
+        jset r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0x9
+        jset r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsge_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        jsge r1, -1, +5
+        jsge r1, 0, +4
+        mov32 r0, 1
+        mov r1, -1
+        jsge r1, -1, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsge_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        mov r2, -1
+        mov32 r3, 0
+        jsge r1, r2, +5
+        jsge r1, r3, +4
+        mov32 r0, 1
+        mov r1, r2
+        jsge r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(10),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsle_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        jsle r1, -3, +1
+        jsle r1, -1, +1
+        exit
+        mov32 r0, 1
+        jsle r1, -2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsle_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -1
+        mov r2, -2
+        mov32 r3, 0
+        jsle r1, r2, +1
+        jsle r1, r3, +1
+        exit
+        mov32 r0, 1
+        mov r1, r2
+        jsle r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(10),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsgt_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        jsgt r1, -1, +4
+        mov32 r0, 1
+        mov32 r1, 0
+        jsgt r1, -1, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jsgt_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        mov r2, -1
+        jsgt r1, r2, +4
+        mov32 r0, 1
+        mov32 r1, 0
+        jsgt r1, r2, +1
+        mov32 r0, 2
+        exit",
+        [],
+        (),
+        TestContextObject::new(8),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jslt_imm() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        jslt r1, -3, +2
+        jslt r1, -2, +1
+        jslt r1, -1, +1
+        exit
+        mov32 r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(7),
+        ProgramResult::Ok(0x1),
+    );
+}
+
+// #[test]
+fn test_jslt_reg() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r0, 0
+        mov r1, -2
+        mov r2, -3
+        mov r3, -1
+        jslt r1, r1, +2
+        jslt r1, r2, +1
+        jslt r1, r3, +1
+        exit
+        mov32 r0, 1
+        exit",
+        [],
+        (),
+        TestContextObject::new(9),
+        ProgramResult::Ok(0x1),
+    );
+}
+
 fn main() {
     // test_mov();
     // test_mov32_imm_large();
@@ -1019,4 +1473,27 @@ fn main() {
     // test_exit_without_value();
     // test_exit();
     // test_early_exit();
+    // test_ja();
+    // test_jeq_imm();
+    // test_jeq_reg();
+    // test_jge_imm();
+    // test_jge_reg();
+    // test_jle_imm();
+    // test_jle_reg();
+    // test_jgt_imm();
+    // test_jgt_reg();
+    // test_jlt_imm();
+    // test_jlt_reg();
+    // test_jne_imm();
+    // test_jne_reg();
+    // test_jset_imm();
+    // test_jset_reg();
+    // test_jsge_imm();
+    // test_jsge_reg();
+    // test_jsle_imm();
+    // test_jsle_reg();
+    // test_jsgt_imm();
+    // test_jsgt_reg();
+    // test_jslt_imm();
+    // test_jslt_reg();
 }
