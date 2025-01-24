@@ -31,4 +31,5 @@ debugger = ["gdbstub"]
 [dev-dependencies]
 elf = "0.0.10"
 json = "0.12"
+test_utils = { path = "test_utils/" }
 

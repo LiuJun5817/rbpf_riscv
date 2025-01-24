@@ -544,6 +544,22 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
                     self.clear_high_32bits(dst);
                 }
+                ebpf::UREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S32, T1, insn.imm);
+                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
+                    self.clear_high_32bits(dst);
+                }
+                ebpf::UREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
+                    self.clear_high_32bits(dst);
+                }
+                ebpf::SREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S32, T1, insn.imm);
+                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
+                }
+                ebpf::SREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
+                }
                 ebpf::OR32_IMM   => {
                     self.emit_sanitized_or(OperandSize::S32, dst, insn.imm);
                     //清零高32位
@@ -909,7 +925,51 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 //TODO ebpf::CALL_IMM
-                //TODO ebpf::CALL_REG
+                ebpf::CALL_IMM   => {
+                    // For JIT, external functions MUST be registered at compile time.
+
+                    let mut resolved = false;
+                    let (external, internal) = if self.executable.get_sbpf_version().static_syscalls() {
+                        (insn.src == 0, insn.src != 0)
+                    } else {
+                        (true, true)
+                    };
+
+                    if external {
+                        if let Some((_function_name, function)) = self.executable.get_loader().get_function_registry().lookup_by_key(insn.imm as u32) {
+                            self.emit_validate_and_profile_instruction_count(true, false, Some(0));
+                            self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, function as usize as i64);
+                            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                            self.store(OperandSize::S64, SP, RA, 0);
+                            self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_EXTERNAL_FUNCTION_CALL, 0), RA));
+                            self.load(OperandSize::S64, SP, 0, RA);
+                            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+
+                            self.emit_undo_profile_instruction_count(0);
+                            resolved = true;
+                        }
+                    }
+
+                    if internal {
+                        if let Some((_function_name, target_pc)) = self.executable.get_function_registry().lookup_by_key(insn.imm as u32) {
+                            self.emit_internal_call(Value::Constant64(target_pc as i64, true));
+                            resolved = true;
+                        }
+                    }
+
+                    if !resolved {
+                        self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION, 0), ZERO));
+                    }
+                },
+                ebpf::CALL_REG  => {
+                    let target_pc = if self.executable.get_sbpf_version().callx_uses_src_reg() {
+                        src
+                    } else {
+                        REGISTER_MAP[insn.imm as usize]
+                    };
+                    self.emit_internal_call(Value::Register(target_pc));
+                },
 
                 ebpf::EXIT      =>{println!("here6");
                     let call_depth_access=self.slot_in_vm(RuntimeEnvironmentSlot::CallDepth) as i64;
@@ -935,6 +995,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     // }
                     
                     // and return
+                    self.emit_validate_and_profile_instruction_count(false, false, Some(0));
                     self.emit_ins(RISCVInstruction::return_near());
                 }
                 // ebpf::EXIT      =>{println!("here6");
@@ -1089,6 +1150,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             // Step 3: 处理低 32 位立即数到临时寄存器并使用 OR 合并
             // 使用 T0 作为临时寄存器
             self.load_immediate_with_lui_and_addi(size, T0, lower_imm);
+
+            // 低32位无符号扩展
+            self.clear_high_32bits(T0);
 
             // 使用 OR 指令合并高位和低位
             self.emit_ins(RISCVInstruction::or(size, destination, T0, destination));
@@ -1332,8 +1396,8 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     fn emit_set_exception_kind(&mut self, err: EbpfError) {
         let err_kind = unsafe { *std::ptr::addr_of!(err).cast::<u64>() };
         let err_discriminant = ProgramResult::Err(err).discriminant();
-        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
-        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, REGISTER_OTHER_SCRATCH));
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, REGISTER_OTHER_SCRATCH);
+        // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, REGISTER_OTHER_SCRATCH));
         // result.discriminant = err_discriminant;
         self.load_immediate(OperandSize::S64, T1, err_discriminant as i64);
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, T1, 0);
@@ -1518,6 +1582,111 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.emit_set_exception_kind(EbpfError::UnsupportedInstruction);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
+        //Routine for external functions
+        self.set_anchor(ANCHOR_EXTERNAL_FUNCTION_CALL);
+        self.load_immediate(OperandSize::S64, T1, -1);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+        self.store(OperandSize::S64, SP, T1, 0);// Used as PC value in error case, acts as stack padding otherwise
+        if self.config.enable_instruction_meter {
+            self.store(OperandSize::S64, REGISTER_INSTRUCTION_METER, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::DueInsnCount) as i64); // *DueInsnCount = REGISTER_INSTRUCTION_METER;
+        }
+        self.emit_rust_call(Value::Register(REGISTER_SCRATCH), &[
+            Argument { index: 5, value: Value::Register(ARGUMENT_REGISTERS[5]) },
+            Argument { index: 4, value: Value::Register(ARGUMENT_REGISTERS[4]) },
+            Argument { index: 3, value: Value::Register(ARGUMENT_REGISTERS[3]) },
+            Argument { index: 2, value: Value::Register(ARGUMENT_REGISTERS[2]) },
+            Argument { index: 1, value: Value::Register(ARGUMENT_REGISTERS[1]) },
+            Argument { index: 0, value: Value::Register(REGISTER_PTR_TO_VM) },
+        ], None);
+        if self.config.enable_instruction_meter {
+            self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::PreviousInstructionMeter) as i64, REGISTER_INSTRUCTION_METER); // REGISTER_INSTRUCTION_METER = *PreviousInstructionMeter;
+        }
+
+        //Test if result indicates that an error occured
+        // self.emit_result_is_err(REGISTER_SCRATCH);
+        let ok = ProgramResult::Ok(0);
+        let ok_discriminant = ok.discriminant();
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+        self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
+        self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+        self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T5, T1, self.relative_to_anchor(ANCHOR_EPILOGUE, 0)));
+        // Store Ok value in result register
+        self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
+        self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, REGISTER_SCRATCH));
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, REGISTER_SCRATCH);
+        self.load(OperandSize::S64, REGISTER_SCRATCH, 8, REGISTER_MAP[0]);
+        self.emit_ins(RISCVInstruction::return_near());
+
+        // Routine for prologue of emit_internal_call()
+        self.set_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_PROLOGUE);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8 * (SCRATCH_REGS + 1) as i64, SP));
+        self.store(OperandSize::S64, SP, REGISTER_SCRATCH,  0); // Save original REGISTER_SCRATCH
+        self.load(OperandSize::S64, SP, 8 * (SCRATCH_REGS + 1) as i64, REGISTER_SCRATCH); // Load return address
+        for (i, reg) in REGISTER_MAP.iter().skip(FIRST_SCRATCH_REG).take(SCRATCH_REGS).enumerate() {
+            self.store(OperandSize::S64, SP, *reg,  8 * (SCRATCH_REGS - i + 1) as i64); // Push SCRATCH_REG
+        }
+        // Push the caller's frame pointer. The code to restore it is emitted at the end of emit_internal_call().
+        self.store(OperandSize::S64, SP, REGISTER_MAP[FRAME_PTR_REG],  8);
+
+        // Push return address and restore original REGISTER_SCRATCH
+        self.load(OperandSize::S64, SP, 0, T5);
+        self.store(OperandSize::S64, SP, REGISTER_SCRATCH, 0);
+        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, REGISTER_SCRATCH));
+
+        // Increase CallDepth
+        let call_depth_access = self.slot_in_vm(RuntimeEnvironmentSlot::CallDepth) as i64;
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, call_depth_access, T5);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T5, 1, T5));
+        self.store(OperandSize::S64, REGISTER_PTR_TO_VM, T5, call_depth_access);
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, call_depth_access, REGISTER_MAP[FRAME_PTR_REG]);
+        // If CallDepth == self.config.max_call_depth, stop and return CallDepthExceeded
+        self.load_immediate(OperandSize::S64, T1, self.config.max_call_depth as i64);
+        self.emit_ins(RISCVInstruction::beq(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], T1, self.relative_to_anchor(ANCHOR_CALL_DEPTH_EXCEEDED, 0)));
+
+        // Setup the frame pointer for the new frame. What we do depends on whether we're using dynamic or fixed frames.
+        let stack_pointer_access = self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer) as i64;
+        if !self.executable.get_sbpf_version().dynamic_stack_frames() {
+            // With fixed frames we start the new frame at the next fixed offset
+            let stack_frame_size = self.config.stack_frame_size as i64 * if self.config.enable_stack_frame_gaps { 2 } else { 1 };
+            self.load_immediate(OperandSize::S32, T1, stack_frame_size);
+            self.store(OperandSize::S64, REGISTER_PTR_TO_VM, T1, stack_pointer_access);
+        }
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, stack_pointer_access, REGISTER_MAP[FRAME_PTR_REG]); // reg[ebpf::FRAME_PTR_REG] = env.stack_pointer;
+        self.emit_ins(RISCVInstruction::return_near());
+
+        // Routine for emit_internal_call(Value::Register())
+        self.set_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_REG);
+        // Calculate offset relative to instruction_addresses
+        self.load_immediate(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], self.program_vm_addr as i64);
+        self.emit_ins(RISCVInstruction::sub(OperandSize::S64, REGISTER_MAP[0], REGISTER_MAP[FRAME_PTR_REG], REGISTER_MAP[0]));// RAX -= self.program_vm_addr;
+        // Force alignment of RAX
+        self.load_immediate(OperandSize::S64, T5, !(INSN_SIZE as i64 - 1));
+        self.emit_ins(RISCVInstruction::and(OperandSize::S64, REGISTER_MAP[0], T5, REGISTER_MAP[0]));// RAX &= !(INSN_SIZE - 1);
+        // Bound check
+        // if(RAX >= number_of_instructions * INSN_SIZE) throw CALL_OUTSIDE_TEXT_SEGMENT;
+        let number_of_instructions = self.result.pc_section.len();
+        self.load_immediate(OperandSize::S64, T1, (number_of_instructions * INSN_SIZE) as i64);
+        self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, REGISTER_MAP[0], T1, self.relative_to_anchor(ANCHOR_CALL_OUTSIDE_TEXT_SEGMENT, 0)));
+        // Calculate the target_pc (dst / INSN_SIZE) to update REGISTER_INSTRUCTION_METER
+        // and as target pc for potential ANCHOR_CALL_UNSUPPORTED_INSTRUCTION
+        let shift_amount = INSN_SIZE.trailing_zeros();
+        debug_assert_eq!(INSN_SIZE, 1 << shift_amount);
+        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_MAP[0], REGISTER_SCRATCH));
+        self.emit_ins(RISCVInstruction::srli(OperandSize::S64, REGISTER_SCRATCH, shift_amount as i64, REGISTER_SCRATCH));
+        
+        // Load host target_address from self.result.pc_section
+        debug_assert_eq!(INSN_SIZE, 8); // Because the instruction size is also the slot size we do not need to shift the offset
+        println!("here pc_section:{:?}", self.result.pc_section);
+        println!("here pc_section:{:?}", self.result.pc_section.as_ptr());
+        println!("here pc_section:{:?}", self.result.pc_section.as_ptr() as i64);
+        let result_pc_section = self.result.pc_section.as_ptr() as i64;
+        self.load_immediate(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], result_pc_section);
+        self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_MAP[0], REGISTER_MAP[FRAME_PTR_REG], REGISTER_MAP[0])); // RAX += self.result.pc_section;
+        self.load(OperandSize::S64, REGISTER_MAP[0], 0,REGISTER_MAP[0]); // RAX = self.result.pc_section[RAX / 8];//这里出错
+        // Load the frame pointer again since we've clobbered REGISTER_MAP[FRAME_PTR_REG]
+        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, stack_pointer_access, REGISTER_MAP[FRAME_PTR_REG]);
+        self.emit_ins(RISCVInstruction::return_near());
 
         // Translates a vm memory address to a host memory address
         // 内存地址翻译子程序
@@ -1570,16 +1739,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             let ok = ProgramResult::Ok(0);
             let ok_discriminant = ok.discriminant();
             self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
-            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, RA, REGISTER_SCRATCH));
             self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
-
             self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
-            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_SCRATCH, T4));
-            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, SP, REGISTER_SCRATCH));
-            // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T4, SP));
-
-            
             self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T5, T1, self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0)));
 
             // unwrap() the result into REGISTER_SCRATCH
@@ -1765,6 +1927,98 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             current_offset += 8;
         }
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8 * saved_registers_len as i64, SP));
+    }
+
+    #[inline]
+    fn call_immediate(&mut self, offset:i64){
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+        self.store(OperandSize::S64, SP, RA, 0);
+        self.emit_ins(RISCVInstruction::jal(offset, RA));
+        self.load(OperandSize::S64, SP, 0, RA);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+    }
+    
+    #[inline]
+    fn call_reg(&mut self, dst: u8){
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+        self.store(OperandSize::S64, SP, RA, 0);
+        self.emit_ins(RISCVInstruction::jalr(dst, 0,RA));
+        self.load(OperandSize::S64, SP, 0, RA);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+    }
+
+    #[inline]
+    fn emit_internal_call(&mut self, dst: Value) {
+        // Store PC in case the bounds check fails
+        self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+        self.store(OperandSize::S64, SP, RA, 0);
+        self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_PROLOGUE, 0), RA));
+        self.load(OperandSize::S64, SP, 0, RA);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+
+        // self.call_immediate(self.relative_to_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_PROLOGUE, 0));
+        
+        match dst {
+            Value::Register(reg) => {
+                // Move vm target_address into RAX
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                self.store(OperandSize::S64, SP, REGISTER_MAP[0], 0);
+                if reg != REGISTER_MAP[0] {
+                    self.emit_ins(RISCVInstruction::mov(OperandSize::S64, reg, REGISTER_MAP[0]));
+                }
+
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                self.store(OperandSize::S64, SP, RA, 0);
+                self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_REG, 0), RA));
+                self.load(OperandSize::S64, SP, 0, RA);
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+
+                // self.call_immediate(self.relative_to_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_REG, 0));
+
+                self.emit_validate_and_profile_instruction_count(false, false, None);
+                self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_MAP[0], REGISTER_OTHER_SCRATCH));
+                self.load(OperandSize::S64, SP, 0, REGISTER_MAP[0]);// Restore RAX
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+    
+                self.call_reg(REGISTER_OTHER_SCRATCH); // callq *REGISTER_OTHER_SCRATCH
+            },
+            Value::Constant64(target_pc, user_provided) => {
+                debug_assert!(user_provided);
+                self.emit_validate_and_profile_instruction_count(false, user_provided, Some(target_pc as usize));
+                if user_provided && self.should_sanitize_constant(target_pc) {
+                    self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc);
+                } else {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc);
+                }
+                
+                
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                self.store(OperandSize::S64, SP, RA, 0);
+                let jump_offset = self.relative_to_target_pc(target_pc as usize, 0) as i64;
+                self.emit_ins(RISCVInstruction::jal(jump_offset, RA));
+                self.load(OperandSize::S64, SP, 0, RA);
+                self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+
+                // self.call_immediate(jump_offset);
+            },
+            _ => {
+                #[cfg(debug_assertions)]
+                unreachable!();
+            }
+        }
+
+        self.emit_undo_profile_instruction_count(0);
+
+        // Restore the previous frame pointer
+        self.load(OperandSize::S64, SP, 0, REGISTER_MAP[FRAME_PTR_REG]);
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+        let mut current_offset = 0;
+        for reg in REGISTER_MAP.iter().skip(FIRST_SCRATCH_REG).take(SCRATCH_REGS).rev() {
+            self.load(OperandSize::S64, SP, current_offset, *reg);
+            current_offset += 8;
+        }
+        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, current_offset, SP));
     }
 
     fn resolve_jumps(&mut self) {

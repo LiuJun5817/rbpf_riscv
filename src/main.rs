@@ -14,6 +14,7 @@ mod memory_region;
 mod program;
 mod riscv;
 mod static_analysis;
+mod syscalls;
 mod test_utils;
 mod verifier;
 mod vm;
@@ -1434,6 +1435,24 @@ fn test_jslt_reg() {
         (),
         TestContextObject::new(9),
         ProgramResult::Ok(0x1),
+    );
+}
+
+fn test_syscall_parameter_on_stack() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov64 r1, r10
+        add64 r1, -0x100
+        mov64 r2, 0x1
+        syscall bpf_syscall_string
+        mov64 r0, 0x0
+        exit",
+        [],
+        (
+            "bpf_syscall_string" => syscalls::SyscallString::vm,
+        ),
+        TestContextObject::new(6),
+        ProgramResult::Ok(0),
     );
 }
 
