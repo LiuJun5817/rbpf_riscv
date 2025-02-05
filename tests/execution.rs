@@ -1,4 +1,5 @@
 #![allow(clippy::arithmetic_side_effects)]
+#![cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 // Copyright 2020 Solana Maintainers <maintainers@solana.com>
 //
 // Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
@@ -195,19 +196,19 @@ macro_rules! test_interpreter_and_jit_elf {
 
 // BPF_ALU : Arithmetic and Logic
 
-// #[test]
-// fn test_mov() {
-//     test_interpreter_and_jit_asm!(
-//         "
-//         mov32 r1, 1
-//         mov32 r0, r1
-//         exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
-//         [],                        //这是一个空数组，表示没有额外的内存配置
-//         (),                        //这是一个空元组，表示没有需要注册的系统调用。
-//         TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
-//         ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
-//     );
-// }
+#[test]
+fn test_mov() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov32 r1, 1
+        mov32 r0, r1
+        exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
+        [],                        //这是一个空数组，表示没有额外的内存配置
+        (),                        //这是一个空元组，表示没有需要注册的系统调用。
+        TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
+        ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
+    );
+}
 // execution-c3f1bcae3bb2ee99
 // #[test]
 // fn test_mov32_imm_large() {

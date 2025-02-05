@@ -267,8 +267,7 @@ const REGISTER_MAP: [u8; 11] = [
     CALLEE_SAVED_REGISTERS[0], //S0
 ];
 
-/// A3: Used together with slot_in_vm()
-// const REGISTER_PTR_TO_VM: u8 = ARGUMENT_REGISTERS[0];//A0
+/// T6: Used together with slot_in_vm()
 const REGISTER_PTR_TO_VM: u8 = T6;
 /// S1: Program counter limit
 const REGISTER_INSTRUCTION_METER: u8 = CALLEE_SAVED_REGISTERS[1]; //S1
@@ -483,13 +482,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 // BPF_ALU class
                 ebpf::ADD32_IMM  => {
                     self.emit_sanitized_add(OperandSize::S32, dst, insn.imm);
-                    //清零高32位
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::ADD32_REG  => {
                     self.emit_ins(RISCVInstruction::addw(OperandSize::S32, src, dst, dst));
-                    //清零高32位
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SUB32_IMM  =>{
                     if self.executable.get_sbpf_version().swap_sub_reg_imm_operands() {
@@ -500,13 +495,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     } else {
                         self.emit_sanitized_sub(OperandSize::S32, dst, insn.imm);
                     }
-                    //清零高32位
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SUB32_REG  => {
                     self.emit_ins(RISCVInstruction::subw(OperandSize::S32, dst, src, dst));
-                    //清零高32位
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MUL32_IMM | ebpf::LMUL32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
@@ -520,11 +511,13 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::DIV32_IMM | ebpf::UDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, T1, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::DIV32_REG | ebpf::UDIV32_REG => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, src, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
@@ -532,32 +525,40 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     // self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_REG => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, src, dst));
                     // self.clear_high_32bits(dst);
                 }
                 ebpf::MOD32_IMM if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MOD32_REG if !self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::UREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::UREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::SREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
                 }
                 ebpf::OR32_IMM   => {
@@ -582,22 +583,22 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::LSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::LSH32_REG  => {
                     self.emit_ins(RISCVInstruction::sllw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_REG  => {
                     self.emit_ins(RISCVInstruction::srlw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::NEG32     if self.executable.get_sbpf_version().enable_neg() => {
                     self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst));
@@ -631,19 +632,21 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }//将一个寄存器中的值移动到另一个寄存器
                 ebpf::ARSH32_IMM => {
                     self.emit_ins(RISCVInstruction::sraiw(OperandSize::S32, dst, insn.imm, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::ARSH32_REG => {
                     self.emit_ins(RISCVInstruction::sraw(OperandSize::S32, dst, src, dst));
-                    self.clear_high_32bits(dst);
+                    // self.clear_high_32bits(dst);
                 }
                 ebpf::LE if self.executable.get_sbpf_version().enable_le() => {
                     match insn.imm {
                         16 => {
-                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xffff, dst)); // Mask to 16 bit
+                            self.load_immediate(OperandSize::S64, T1, 0xffff);
+                            self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 16 bit
                         }
                         32 => {
-                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, -1, dst)); // Mask to 32 bit
+                            self.load_immediate(OperandSize::S64, T1, 0xffffffff);
+                            self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 32 bit
                         }
                         64 => {}
                         _ => {
@@ -651,8 +654,76 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                         }
                     }
                 },
-                //TODO ebpf::BE
-                
+                ebpf::BE         => {
+                    match insn.imm {
+                        16 => {
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xff, T1));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 8, T2));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T2, 0xff, T2));
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T1, 8, T1));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, dst));
+                            // self.load_immediate(OperandSize::S64, T1, 0xffff);
+                            // self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 16 bit
+                        }
+                        32 => {
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xff, T1));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 8, T2));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T2, 0xff, T2));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 16, T3));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T3, 0xff, T3));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 24, T4));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T4, 0xff, T4));
+                            
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T1, 24, T1));
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T2, 16, T2));
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T3, 8, T3));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, dst));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, T3, dst));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, T4, dst));
+                            // self.load_immediate(OperandSize::S64, T1, 0xffffffff);
+                            // self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 16 bit
+                        }
+                        64 => {
+                            //low32bits
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, dst, 0xff, T1));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S64, dst, 8, T2));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T2, 0xff, T2));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S64, dst, 16, T3));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T3, 0xff, T3));
+                            self.emit_ins(RISCVInstruction::srliw(OperandSize::S64, dst, 24, T4));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T4, 0xff, T4));
+                            
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S64, T1, 24, T1));
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S64, T2, 16, T2));
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S64, T3, 8, T3));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, T5));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T3, T5));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T4, T5));
+                            self.emit_ins(RISCVInstruction::slli(OperandSize::S64,T5,32,T5));
+                            // self.clear_high_32bits(T5);
+                            //high32bits
+                            self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, 32, T1));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T1, 0xff, T1));
+                            self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, 40, T2));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T2, 0xff, T2));
+                            self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, 48, T3));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T3, 0xff, T3));
+                            self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, 56, T4));
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T4, 0xff, T4));
+                        
+                            self.emit_ins(RISCVInstruction::slli(OperandSize::S64, T1, 24, T1));
+                            self.emit_ins(RISCVInstruction::slli(OperandSize::S64, T2, 16, T2));
+                            self.emit_ins(RISCVInstruction::slli(OperandSize::S64, T3, 8, T3));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T1, T5));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T2, T5));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T3, T5));
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T4, dst));
+                        }
+                        _ => {
+                            return Err(EbpfError::InvalidInstruction);
+                        }
+                    }
+                },
 
                 // BPF_ALU64 class
                 ebpf::ADD64_IMM  => self.emit_sanitized_add(OperandSize::S64, dst, insn.imm),
@@ -686,9 +757,13 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::mul(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::DIV64_REG | ebpf::UDIV64_REG => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divu(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::MOD64_REG  => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::UHMUL64_IMM => {
@@ -710,6 +785,8 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::SDIV64_REG => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, src, dst));
                 }
 
@@ -1396,8 +1473,8 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     fn emit_set_exception_kind(&mut self, err: EbpfError) {
         let err_kind = unsafe { *std::ptr::addr_of!(err).cast::<u64>() };
         let err_discriminant = ProgramResult::Err(err).discriminant();
-        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, REGISTER_OTHER_SCRATCH);
-        // self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, REGISTER_OTHER_SCRATCH));
+        self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
+        self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, REGISTER_OTHER_SCRATCH));
         // result.discriminant = err_discriminant;
         self.load_immediate(OperandSize::S64, T1, err_discriminant as i64);
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, T1, 0);
@@ -1406,13 +1483,13 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, T1, std::mem::size_of::<u64>() as i64);
     }
 
-    fn emit_result_is_err(&mut self, destination: u8) {
-        let ok = ProgramResult::Ok(0);
-        let ok_discriminant = ok.discriminant();
-        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
-        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, destination));
-        self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
-    }
+    // fn emit_result_is_err(&mut self, destination: u8) {
+    //     let ok = ProgramResult::Ok(0);
+    //     let ok_discriminant = ok.discriminant();
+    //     self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+    //     self.emit_ins(RISCVInstruction::mov(OperandSize::S64, T5, destination));
+    //     self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
+    // }
 
     #[inline]
     fn emit_address_translation(&mut self, dst: Option<u8>, vm_addr: Value, len: u64, value: Option<Value>) {
@@ -1606,7 +1683,10 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // self.emit_result_is_err(REGISTER_SCRATCH);
         let ok = ProgramResult::Ok(0);
         let ok_discriminant = ok.discriminant();
-        self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+        self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
+        self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, T5));
+        // self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+        
         self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
         self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
@@ -1683,7 +1763,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         let result_pc_section = self.result.pc_section.as_ptr() as i64;
         self.load_immediate(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], result_pc_section);
         self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_MAP[0], REGISTER_MAP[FRAME_PTR_REG], REGISTER_MAP[0])); // RAX += self.result.pc_section;
-        self.load(OperandSize::S64, REGISTER_MAP[0], 0,REGISTER_MAP[0]); // RAX = self.result.pc_section[RAX / 8];//这里出错
+        self.load(OperandSize::S64, REGISTER_MAP[0], 0,REGISTER_MAP[0]); // RAX = self.result.pc_section[RAX / 8];
         // Load the frame pointer again since we've clobbered REGISTER_MAP[FRAME_PTR_REG]
         self.load(OperandSize::S64, REGISTER_PTR_TO_VM, stack_pointer_access, REGISTER_MAP[FRAME_PTR_REG]);
         self.emit_ins(RISCVInstruction::return_near());
@@ -1738,11 +1818,15 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             // self.emit_result_is_err(REGISTER_SCRATCH);
             let ok = ProgramResult::Ok(0);
             let ok_discriminant = ok.discriminant();
-            self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+            self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
+            self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, T5));
+            //self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64, T5);
+            
             self.load_immediate(OperandSize::S64, T1, ok_discriminant as i64);
             self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
-            self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T5, T1, self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0)));
+            self.load(OperandSize::S64, T5, 0, T4);
+            self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T1, T4, self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0)));
 
             // unwrap() the result into REGISTER_SCRATCH
             self.load(OperandSize::S64, REGISTER_PTR_TO_VM, (self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) + std::mem::size_of::<u64>() as i32) as i64,REGISTER_SCRATCH);

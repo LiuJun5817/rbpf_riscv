@@ -3,6 +3,14 @@ name = "riscv-main"
 version = "0.1.0"
 edition = "2021"
 
+include = [
+    "src/**",
+    "examples/**",
+    "tests/**",
+    "benches/**",
+    "Cargo.toml",
+]
+
 [dependencies]
 arbitrary = { version = "1.0", optional = true, features = ["derive"] }
 byteorder = "1.2"
