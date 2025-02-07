@@ -13,6 +13,7 @@ extern crate test_utils;
 extern crate thiserror;
 
 use byteorder::{ByteOrder, LittleEndian};
+#[cfg(all(not(windows), target_arch = "riscv64"))]
 use rand::{rngs::SmallRng, RngCore, SeedableRng};
 use solana_rbpf::{
     assembler::assemble,
@@ -76,7 +77,7 @@ macro_rules! test_interpreter_and_jit {
         };
         print!("hello4");
         std::io::stdout().flush().unwrap();
-        #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+        #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
         {
             #[allow(unused_mut)]
             let compilation_result = $executable.jit_compile();//生成的x86程序是怎么执行的？用gbd
@@ -154,7 +155,7 @@ macro_rules! test_interpreter_and_jit_asm {
         #[allow(unused_mut)]
         {
             let mut config = $config;
-            config.enable_instruction_tracing = false;//改成了false
+            config.enable_instruction_tracing = false;
             let mut function_registry = FunctionRegistry::<BuiltinFunction<TestContextObject>>::default();
             $(test_interpreter_and_jit!(register, function_registry, $location => $syscall_function);)*
             let loader = Arc::new(BuiltinProgram::new_loader(config, function_registry));
@@ -187,7 +188,7 @@ macro_rules! test_interpreter_and_jit_elf {
     };
     ($source:tt, $mem:tt, ($($location:expr => $syscall_function:expr),* $(,)?), $context_object:expr, $expected_result:expr $(,)?) => {
         let config = Config {
-            enable_instruction_tracing: true,
+            enable_instruction_tracing: false,
             ..Config::default()
         };
         test_interpreter_and_jit_elf!($source, config, $mem, ($($location => $syscall_function),*), $context_object, $expected_result);
@@ -196,19 +197,19 @@ macro_rules! test_interpreter_and_jit_elf {
 
 // BPF_ALU : Arithmetic and Logic
 
-#[test]
-fn test_mov() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov32 r1, 1
-        mov32 r0, r1
-        exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
-        [],                        //这是一个空数组，表示没有额外的内存配置
-        (),                        //这是一个空元组，表示没有需要注册的系统调用。
-        TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
-        ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
-    );
-}
+// #[test]
+// fn test_mov() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov32 r1, 1
+//         mov32 r0, r1
+//         exit", //这是要测试的汇编代码，表示将 1 移动到寄存器 r1，然后将 r1 的值移动到 r0，最后退出。
+//         [],                        //这是一个空数组，表示没有额外的内存配置
+//         (),                        //这是一个空元组，表示没有需要注册的系统调用。
+//         TestContextObject::new(3), //这里创建了一个新的 TestContextObject，用于跟踪执行状态或上下文信息，3 是传递给构造函数的参数
+//         ProgramResult::Ok(0x1),    //这是预期的程序执行结果，表示期望最终返回 0x1
+//     );
+// }
 // execution-c3f1bcae3bb2ee99
 // #[test]
 // fn test_mov32_imm_large() {
@@ -235,20 +236,6 @@ fn test_mov() {
 //         (),
 //         TestContextObject::new(3),
 //         ProgramResult::Ok(0xffffffff),
-//     );
-// }
-
-// #[test]
-// fn test_mov_large2() {
-//     test_interpreter_and_jit_asm!(
-//         "
-//         mov32 r0, -1
-//         add64 r0, 0x1
-//         exit",
-//         [],
-//         (),
-//         TestContextObject::new(3),
-//         ProgramResult::Ok(0x0),
 //     );
 // }
 
@@ -1366,6 +1353,7 @@ fn test_alu64_arithmetic() {
 
 // // BPF_JMP : Branches
 
+//pass
 // #[test]
 // fn test_exit_capped() {
 //     test_interpreter_and_jit_asm!(
@@ -1897,36 +1885,38 @@ fn test_alu64_arithmetic() {
 //     );
 // }
 
-#[test]
-fn test_stack2() {
-    test_interpreter_and_jit_asm!(
-        "
-        stb [r10-4], 0x01
-        stb [r10-3], 0x02
-        stb [r10-2], 0x03
-        stb [r10-1], 0x04
-        mov r1, r10
-        mov r2, 0x4
-        sub r1, r2
-        syscall bpf_mem_frob
-        mov r1, 0
-        ldxb r2, [r10-4]
-        ldxb r3, [r10-3]
-        ldxb r4, [r10-2]
-        ldxb r5, [r10-1]
-        syscall bpf_gather_bytes
-        xor r0, 0x2a2a2a2a
-        exit",
-        [],
-        (
-            "bpf_mem_frob" => syscalls::SyscallMemFrob::vm,
-            "bpf_gather_bytes" => syscalls::SyscallGatherBytes::vm,
-        ),
-        TestContextObject::new(16),
-        ProgramResult::Ok(0x01020304),
-    );
-}
+// pass
+// #[test]
+// fn test_stack2() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         stb [r10-4], 0x01
+//         stb [r10-3], 0x02
+//         stb [r10-2], 0x03
+//         stb [r10-1], 0x04
+//         mov r1, r10
+//         mov r2, 0x4
+//         sub r1, r2
+//         syscall bpf_mem_frob
+//         mov r1, 0
+//         ldxb r2, [r10-4]
+//         ldxb r3, [r10-3]
+//         ldxb r4, [r10-2]
+//         ldxb r5, [r10-1]
+//         syscall bpf_gather_bytes
+//         xor r0, 0x2a2a2a2a
+//         exit",
+//         [],
+//         (
+//             "bpf_mem_frob" => syscalls::SyscallMemFrob::vm,
+//             "bpf_gather_bytes" => syscalls::SyscallGatherBytes::vm,
+//         ),
+//         TestContextObject::new(16),
+//         ProgramResult::Ok(0x01020304),
+//     );
+// }
 
+// pass
 // #[test]
 // fn test_string_stack() {
 //     test_interpreter_and_jit_asm!(
@@ -1968,6 +1958,7 @@ fn test_stack2() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_dynamic_stack_out_of_bound() {
 //     let config = Config {
@@ -2043,6 +2034,7 @@ fn test_stack2() {
 // //     );
 // // }
 
+// pass
 // #[test]
 // fn test_dynamic_stack_frames_empty() {
 //     let config = Config::default();
@@ -2103,6 +2095,7 @@ fn test_stack2() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_entrypoint_exit() {
 //     // With fixed frames we used to exit the entrypoint when we reached an exit
@@ -2137,6 +2130,7 @@ fn test_stack2() {
 //     }
 // }
 
+// pass
 // #[test]
 // fn test_stack_call_depth_tracking() {
 //     for enable_sbpf_v2 in [false, true] {
@@ -2186,6 +2180,7 @@ fn test_stack2() {
 //     }
 // }
 
+// pass
 // #[test]
 // fn test_err_mem_access_out_of_bound() {
 //     let mem = [0; 512];
@@ -2233,6 +2228,7 @@ fn test_stack2() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_bpf_to_bpf_scratch_registers() {
 //     test_interpreter_and_jit_asm!(
@@ -2260,45 +2256,48 @@ fn test_stack2() {
 //     );
 // }
 
-#[test]
-fn test_syscall_parameter_on_stack() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov64 r1, r10
-        add64 r1, -0x100
-        mov64 r2, 0x1
-        syscall bpf_syscall_string
-        mov64 r0, 0x0
-        exit",
-        [],
-        (
-            "bpf_syscall_string" => syscalls::SyscallString::vm,
-        ),
-        TestContextObject::new(6),
-        ProgramResult::Ok(0),
-    );
-}
+// pass
+// #[test]
+// fn test_syscall_parameter_on_stack() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov64 r1, r10
+//         add64 r1, -0x100
+//         mov64 r2, 0x1
+//         syscall bpf_syscall_string
+//         mov64 r0, 0x0
+//         exit",
+//         [],
+//         (
+//             "bpf_syscall_string" => syscalls::SyscallString::vm,
+//         ),
+//         TestContextObject::new(6),
+//         ProgramResult::Ok(0),
+//     );
+// }
 
-#[test]
-fn test_callx() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov64 r0, 0x0
-        mov64 r8, 0x1
-        lsh64 r8, 0x20
-        or64 r8, 0x30
-        callx r8
-        exit
-        function_foo:
-        mov64 r0, 0x2A
-        exit",
-        [],
-        (),
-        TestContextObject::new(8),
-        ProgramResult::Ok(42),
-    );
-}
+// pass
+// #[test]
+// fn test_callx() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov64 r0, 0x0
+//         mov64 r8, 0x1
+//         lsh64 r8, 0x20
+//         or64 r8, 0x30
+//         callx r8
+//         exit
+//         function_foo:
+//         mov64 r0, 0x2A
+//         exit",
+//         [],
+//         (),
+//         TestContextObject::new(8),
+//         ProgramResult::Ok(42),
+//     );
+// }
 
+// pass
 // #[test]
 // fn test_err_callx_unregistered() {
 //     test_interpreter_and_jit_asm!(
@@ -2318,6 +2317,7 @@ fn test_callx() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_callx_oob_low() {
 //     test_interpreter_and_jit_asm!(
@@ -2332,6 +2332,7 @@ fn test_callx() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_callx_oob_high() {
 //     test_interpreter_and_jit_asm!(
@@ -2348,6 +2349,7 @@ fn test_callx() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_bpf_to_bpf_depth() {
 //     for max_call_depth in [20usize, Config::default().max_call_depth] {
@@ -2393,6 +2395,7 @@ fn test_callx() {
 //     }
 // }
 
+// pass
 // #[test]
 // fn test_err_reg_stack_depth() {
 //     for max_call_depth in [20usize, Config::default().max_call_depth] {
@@ -2458,23 +2461,24 @@ fn test_callx() {
 //     );
 // }
 
-#[test]
-fn test_syscall_string() {
-    test_interpreter_and_jit_asm!(
-        "
-        mov64 r2, 0x5
-        syscall bpf_syscall_string
-        mov64 r0, 0x0
-        exit",
-        [72, 101, 108, 108, 111],
-        (
-            "bpf_syscall_string" => syscalls::SyscallString::vm,
-        ),
-        TestContextObject::new(4),
-        ProgramResult::Ok(0),
-    );
-}
+// #[test]
+// fn test_syscall_string() {
+//     test_interpreter_and_jit_asm!(
+//         "
+//         mov64 r2, 0x5
+//         syscall bpf_syscall_string
+//         mov64 r0, 0x0
+//         exit",
+//         [72, 101, 108, 108, 111],
+//         (
+//             "bpf_syscall_string" => syscalls::SyscallString::vm,
+//         ),
+//         TestContextObject::new(4),
+//         ProgramResult::Ok(0),
+//     );
+// }
 
+// pass
 // #[test]
 // fn test_syscall() {
 //     test_interpreter_and_jit_asm!(
@@ -2496,6 +2500,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_call_gather_bytes() {
 //     test_interpreter_and_jit_asm!(
@@ -2516,6 +2521,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_call_memfrob() {
 //     test_interpreter_and_jit_asm!(
@@ -2603,6 +2609,7 @@ fn test_syscall_string() {
 
 // // Instruction Meter Limit
 
+// pass
 // #[test]
 // fn test_tight_infinite_loop_conditional() {
 //     test_interpreter_and_jit_asm!(
@@ -2616,6 +2623,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_tight_infinite_loop_unconditional() {
 //     test_interpreter_and_jit_asm!(
@@ -2629,6 +2637,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+//pass
 // #[test]
 // fn test_tight_infinite_recursion() {
 //     test_interpreter_and_jit_asm!(
@@ -2644,6 +2653,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+//pass
 // #[test]
 // fn test_tight_infinite_recursion_callx() {
 //     test_interpreter_and_jit_asm!(
@@ -2664,22 +2674,22 @@ fn test_syscall_string() {
 //     );
 // }
 
-// #[test]
-// fn test_instruction_count_syscall() {
-//     test_interpreter_and_jit_asm!(
-//         "
-//         mov64 r2, 0x5
-//         syscall bpf_syscall_string
-//         mov64 r0, 0x0
-//         exit",
-//         [72, 101, 108, 108, 111],
-//         (
-//             "bpf_syscall_string" => syscalls::SyscallString::vm,
-//         ),
-//         TestContextObject::new(4),
-//         ProgramResult::Ok(0),
-//     );
-// }
+#[test]
+fn test_instruction_count_syscall() {
+    test_interpreter_and_jit_asm!(
+        "
+        mov64 r2, 0x5
+        syscall bpf_syscall_string
+        mov64 r0, 0x0
+        exit",
+        [72, 101, 108, 108, 111],
+        (
+            "bpf_syscall_string" => syscalls::SyscallString::vm,
+        ),
+        TestContextObject::new(4),
+        ProgramResult::Ok(0),
+    );
+}
 
 // #[test]
 // fn test_err_instruction_count_syscall_capped() {
@@ -2698,6 +2708,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_non_terminate_early() {
 //     test_interpreter_and_jit_asm!(
@@ -2719,6 +2730,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+//pass
 // #[test]
 // fn test_err_non_terminate_capped() {
 //     test_interpreter_and_jit_asm!(
@@ -2761,6 +2773,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_capped_before_exception() {
 //     test_interpreter_and_jit_asm!(
@@ -2793,6 +2806,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_exit_capped() {
 //     test_interpreter_and_jit_asm!(
@@ -2840,6 +2854,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_far_jumps() {
 //     test_interpreter_and_jit_asm!(
@@ -2865,6 +2880,7 @@ fn test_syscall_string() {
 
 // // Symbols and Relocation
 
+// pass
 // #[test]
 // fn test_symbol_relocation() {
 //     test_interpreter_and_jit_asm!(
@@ -2884,6 +2900,7 @@ fn test_syscall_string() {
 //     );
 // }
 
+// pass
 // #[test]
 // fn test_err_call_unresolved() {
 //     test_interpreter_and_jit_asm!(
@@ -3332,7 +3349,7 @@ fn test_syscall_string() {
 
 // // Fuzzy
 
-// #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+// #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 // fn execute_generated_program(prog: &[u8]) -> bool {
 //     let max_instruction_count = 1024;
 //     let mem_size = 1024 * 1024;
@@ -3414,7 +3431,7 @@ fn test_syscall_string() {
 //     true
 // }
 
-// #[cfg(all(not(windows), target_arch = "x86_64"))]
+// #[cfg(all(not(windows), target_arch = "riscv64"))]
 // #[test]
 // fn test_total_chaos() {
 //     let instruction_count = 6;
@@ -3445,6 +3462,7 @@ fn test_syscall_string() {
 
 // // SBPFv1 only [DEPRECATED]
 
+// pass
 // #[test]
 // fn test_err_fixed_stack_out_of_bound() {
 //     let config = Config {

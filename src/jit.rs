@@ -107,7 +107,7 @@ impl JitProgram {
     ) {
         unsafe {
             std::arch::asm!(
-                "addi sp, sp, -16",                // 创建栈帧，预留 16 字节空间
+                "addi sp, sp, -24",                // 创建栈帧，预留 16 字节空间
                 "sd s1, 0(sp)",                    // 保存 s0 到栈
                 "sd s0, 8(sp)",                    // 保存 s1 到栈
 
@@ -130,14 +130,17 @@ impl JitProgram {
                 "ld s0, 80(a7)",          // 加载 s1
                 "ld a7, 88(a7)",          // 加载 a7
                 // 跳转到目标地址并调用
+                "auipc t2, 0",
+                "addi t2, t2, 10",
+                "sd t2, 16(sp)",
                 "jalr ra, a6",       // 调用目标函数
 
                 // 恢复被调用者保存寄存器
                 "ld s1, 0(sp)",
                 "ld s0, 8(sp)",
-                "addi sp, sp, 16",                 // 恢复栈帧
+                "addi sp, sp, 24",                 // 恢复栈帧
 
-                inlateout("t5") &mut vm.host_stack_pointer => _,//t6
+                inlateout("t5") &mut vm.host_stack_pointer => _,
                 inlateout("t6") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,//a3
                 inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,//a0
                 inlateout("a6") self.pc_section[registers[11] as usize] => _,
@@ -147,54 +150,6 @@ impl JitProgram {
             );
         }
     }
-
-    // pub fn invoke<C: ContextObject>(
-    //     &self,
-    //     _config: &Config,
-    //     vm: &mut EbpfVm<C>,
-    //     registers: [u64; 12],
-    // ) {
-    //     unsafe {
-    //         std::arch::asm!(
-    //             "addi sp, sp, -16",                // 创建栈帧，预留 16 字节空间
-    //             "sd s0, 0(sp)",                    // 保存 s0 到栈
-    //             "sd s1, 8(sp)",                    // 保存 s1 到栈
-
-    //             "sd sp, 0(t6)",
-
-    //             "mv s0, a0",
-    //             "ld a0, 0(a7)",           // 加载第 1 个参数到 a0
-    //             "ld a2, 8(a7)",           // 加载第 2 个参数到 a2
-    //             "ld a1, 16(a7)",          // 加载第 3 个参数到 a1
-    //             "ld t6, 24(a7)",          // 加载第 4 个参数到 t0
-    //             "ld a4, 32(a7)",          // 加载第 5 个参数到 a4
-    //             "ld a5, 40(a7)",          // 加载第 6 个参数到 a5
-
-    //             // 设置被调用者保存寄存器
-    //             "ld s2, 48(a7)",          // 加载 s2
-    //             "ld s3, 56(a7)",          // 加载 s3
-    //             "ld s4, 64(a7)",          // 加载 s4
-    //             "ld s5, 72(a7)",          // 加载 s5
-    //             "ld s1, 80(a7)",          // 加载 s1
-    //             "ld a7, 88(a7)",          // 加载 a7
-    //             // 跳转到目标地址并调用
-    //             "jalr ra, a6",       // 调用目标函数
-
-    //             // 恢复被调用者保存寄存器
-    //             "ld s0, 0(sp)",
-    //             "ld s1, 8(sp)",
-    //             "addi sp, sp, 16",                 // 恢复栈帧
-
-    //             inlateout("t6") &mut vm.host_stack_pointer => _,
-    //             inlateout("a3") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,
-    //             inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,
-    //             inlateout("a6") self.pc_section[registers[11] as usize] => _,
-    //             inlateout("a7") &registers => _,
-    //             lateout("a2") _, lateout("a1") _, lateout("a4") _,
-    //             lateout("a5") _, lateout("s2") _, lateout("s3") _, lateout("s4") _, lateout("s5") _,
-    //         );
-    //     }
-    // }
 
     pub fn machine_code_length(&self) -> usize {
         self.text_section.len()
@@ -409,7 +364,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             if self.last_instruction_meter_validation_pc + self.config.instruction_meter_checkpoint_distance <= self.pc {
                 self.emit_validate_instruction_count(true, Some(self.pc));
             }
-            //TODO
+
             if self.config.enable_instruction_tracing {
                 println!("指令追踪开启：");
                 self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
@@ -1008,7 +963,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 ebpf::CALL_IMM   => {
                     // For JIT, external functions MUST be registered at compile time.
-
                     let mut resolved = false;
                     let (external, internal) = if self.executable.get_sbpf_version().static_syscalls() {
                         (insn.src == 0, insn.src != 0)
@@ -1067,7 +1021,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], -1, REGISTER_MAP[FRAME_PTR_REG]));
                     self.store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_MAP[FRAME_PTR_REG], call_depth_access);
                     
-                    //TODO
                     if !self.executable.get_sbpf_version().dynamic_stack_frames() {
                         let stack_pointer_access=self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer) as i64;
                         let stack_frame_size = self.config.stack_frame_size as i64 * if self.config.enable_stack_frame_gaps { 2 } else { 1 };
@@ -1568,13 +1521,12 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 
     fn emit_subroutines(&mut self){
-        //  TODO    
         // Routine for instruction tracing
         if self.config.enable_instruction_tracing {
             self.set_anchor(ANCHOR_TRACE);
             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
             self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, REGISTER_SCRATCH, 0));
-            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, (REGISTER_MAP.len() * (-8)) as i64, SP));
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, REGISTER_MAP.len() as i64 * (-8), SP));
             let mut current_offset = 0;
             for reg in REGISTER_MAP.iter().rev() {
                 self.store(OperandSize::S64, SP, *reg, current_offset);
@@ -1615,6 +1567,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Restore stack pointer in case we did not exit gracefully
         
         self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP);
+        self.load(OperandSize::S64, SP,16, RA);
         self.emit_ins(RISCVInstruction::return_near());
         
         // Handler for EbpfError::ExceededMaxInstructions
@@ -1665,7 +1618,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         // Handler for EbpfError::UnsupportedInstruction
         self.set_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION);
-        //TODO if self.config.enable_instruction_tracing 
+        // if self.config.enable_instruction_tracing 
         self.emit_set_exception_kind(EbpfError::UnsupportedInstruction);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
@@ -2094,7 +2047,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 self.emit_ins(RISCVInstruction::jal(jump_offset, RA));
                 self.load(OperandSize::S64, SP, 0, RA);
                 self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
-
                 // self.call_immediate(jump_offset);
             },
             _ => {
