@@ -1897,35 +1897,35 @@ fn test_alu64_arithmetic() {
 //     );
 // }
 
-// #[test]
-// fn test_stack2() {
-//     test_interpreter_and_jit_asm!(
-//         "
-//         stb [r10-4], 0x01
-//         stb [r10-3], 0x02
-//         stb [r10-2], 0x03
-//         stb [r10-1], 0x04
-//         mov r1, r10
-//         mov r2, 0x4
-//         sub r1, r2
-//         syscall bpf_mem_frob
-//         mov r1, 0
-//         ldxb r2, [r10-4]
-//         ldxb r3, [r10-3]
-//         ldxb r4, [r10-2]
-//         ldxb r5, [r10-1]
-//         syscall bpf_gather_bytes
-//         xor r0, 0x2a2a2a2a
-//         exit",
-//         [],
-//         (
-//             "bpf_mem_frob" => syscalls::SyscallMemFrob::vm,
-//             "bpf_gather_bytes" => syscalls::SyscallGatherBytes::vm,
-//         ),
-//         TestContextObject::new(16),
-//         ProgramResult::Ok(0x01020304),
-//     );
-// }
+#[test]
+fn test_stack2() {
+    test_interpreter_and_jit_asm!(
+        "
+        stb [r10-4], 0x01
+        stb [r10-3], 0x02
+        stb [r10-2], 0x03
+        stb [r10-1], 0x04
+        mov r1, r10
+        mov r2, 0x4
+        sub r1, r2
+        syscall bpf_mem_frob
+        mov r1, 0
+        ldxb r2, [r10-4]
+        ldxb r3, [r10-3]
+        ldxb r4, [r10-2]
+        ldxb r5, [r10-1]
+        syscall bpf_gather_bytes
+        xor r0, 0x2a2a2a2a
+        exit",
+        [],
+        (
+            "bpf_mem_frob" => syscalls::SyscallMemFrob::vm,
+            "bpf_gather_bytes" => syscalls::SyscallGatherBytes::vm,
+        ),
+        TestContextObject::new(16),
+        ProgramResult::Ok(0x01020304),
+    );
+}
 
 // #[test]
 // fn test_string_stack() {
