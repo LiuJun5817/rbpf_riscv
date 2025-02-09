@@ -3,8 +3,8 @@ use crate::{
     ebpf::{self, EF_SBPF_V2, HOST_ALIGN, INSN_SIZE},
     elf_parser::{
         consts::{
-            ELFCLASS64, ELFDATA2LSB, ELFOSABI_NONE, EM_BPF, EM_SBPF, ET_DYN, R_RISCV_32,
-            R_RISCV_64, R_RISCV_NONE, R_RISCV_RELATIVE,
+            ELFCLASS64, ELFDATA2LSB, ELFOSABI_NONE, EM_BPF, EM_SBPF, ET_DYN, R_X86_64_32,
+            R_X86_64_64, R_X86_64_NONE, R_X86_64_RELATIVE,
         },
         types::Elf64Word,
     },
@@ -154,12 +154,12 @@ enum BpfRelocationType {
     R_Bpf_64_32 = 10,
 }
 impl BpfRelocationType {
-    fn from_RISCV_relocation_type(from: u32) -> Option<BpfRelocationType> {
+    fn from_x86_relocation_type(from: u32) -> Option<BpfRelocationType> {
         match from {
-            R_RISCV_NONE => Some(BpfRelocationType::R_Bpf_None),
-            R_RISCV_64 => Some(BpfRelocationType::R_Bpf_64_64),
-            R_RISCV_RELATIVE => Some(BpfRelocationType::R_Bpf_64_Relative),
-            R_RISCV_32 => Some(BpfRelocationType::R_Bpf_64_32),
+            R_X86_64_NONE => Some(BpfRelocationType::R_Bpf_None),
+            R_X86_64_64 => Some(BpfRelocationType::R_Bpf_64_64),
+            R_X86_64_RELATIVE => Some(BpfRelocationType::R_Bpf_64_Relative),
+            R_X86_64_32 => Some(BpfRelocationType::R_Bpf_64_32),
             _ => None,
         }
     }
@@ -839,7 +839,7 @@ impl<C: ContextObject> Executable<C> {
                     .saturating_add(header.p_offset() as usize);
             }
 
-            match BpfRelocationType::from_RISCV_relocation_type(relocation.r_type()) {
+            match BpfRelocationType::from_x86_relocation_type(relocation.r_type()) {
                 Some(BpfRelocationType::R_Bpf_64_64) => {
                     // Offset of the immediate field
                     let imm_offset = if text_section

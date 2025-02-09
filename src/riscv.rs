@@ -490,6 +490,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// Remainder of signed division rs1 by rs2 (REM rd, rs1, rs2)
+    #[inline]
+    pub const fn rem(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x6),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
     /// SLL (Shift Left Logical rd, rs1, rs2) 按位逻辑左移操作
     #[inline]
     pub const fn sll(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {

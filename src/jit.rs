@@ -206,7 +206,8 @@ const ANCHOR_EXTERNAL_FUNCTION_CALL: usize = 11;
 const ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_PROLOGUE: usize = 12;
 const ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_REG: usize = 13;
 const ANCHOR_TRANSLATE_MEMORY_ADDRESS: usize = 21;
-const ANCHOR_COUNT: usize = 30; // Update me when adding or removing anchors
+const ANCHOR_NO_OVERFLOW: usize = 30;
+const ANCHOR_COUNT: usize = 31; // Update me when adding or removing anchors
 
 const REGISTER_MAP: [u8; 11] = [
     CALLER_SAVED_REGISTERS[4], //a0
@@ -364,7 +365,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             if self.last_instruction_meter_validation_pc + self.config.instruction_meter_checkpoint_distance <= self.pc {
                 self.emit_validate_instruction_count(true, Some(self.pc));
             }
-
+            //TODO
             if self.config.enable_instruction_tracing {
                 println!("指令追踪开启：");
                 self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
@@ -462,64 +463,72 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::MUL32_IMM | ebpf::LMUL32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, T1, src, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MUL32_REG | ebpf::LMUL32_REG => {
                     self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::DIV32_IMM | ebpf::UDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, T1, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::DIV32_REG | ebpf::UDIV32_REG => {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, T1, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::SDIV32_REG => {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MOD32_IMM if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::MOD32_REG if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::UREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
-                    // self.clear_high_32bits(dst);
                 }
                 ebpf::UREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
+                }
+                ebpf::UREM64_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, T1, dst));
+                }
+                ebpf::UREM64_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
+                    self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::SREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
+                    self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::SREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
-                    self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, src, dst));
+                    self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, src, dst));
+                }
+                ebpf::SREM64_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.emit_ins(RISCVInstruction::rem(OperandSize::S64, dst, T1, dst));
+                }
+                ebpf::SREM64_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                    self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
+                    self.emit_ins(RISCVInstruction::rem(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::OR32_IMM   => {
                     self.emit_sanitized_or(OperandSize::S32, dst, insn.imm);
@@ -543,22 +552,22 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::LSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::LSH32_REG  => {
                     self.emit_ins(RISCVInstruction::sllw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_IMM  => {
                     self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, insn.imm, dst));
                     // //清零高32位
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::RSH32_REG  => {
                     self.emit_ins(RISCVInstruction::srlw(OperandSize::S32, dst, src, dst));
                     // //清零高32位
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::NEG32     if self.executable.get_sbpf_version().enable_neg() => {
                     self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst));
@@ -578,25 +587,24 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::MOV32_IMM  => {
                     if self.should_sanitize_constant(insn.imm) {//检查立即数是否需要进行安全处理，防止可能的安全漏洞 
                         self.emit_sanitized_load_immediate(OperandSize::S32, dst, insn.imm);
-                    } else {println!("here10");
+                    } else {
                         self.load_immediate(OperandSize::S32, dst, insn.imm);
                     }
                     //清零高32位
                     self.clear_high_32bits(dst);
                 }
-                ebpf::MOV32_REG  => {println!("here8");
+                ebpf::MOV32_REG  => {
                     self.emit_ins(RISCVInstruction::mov(OperandSize::S32, src, dst));
                     //清零高32位
                     self.clear_high_32bits(dst);
-                    println!("here9");
                 }//将一个寄存器中的值移动到另一个寄存器
                 ebpf::ARSH32_IMM => {
                     self.emit_ins(RISCVInstruction::sraiw(OperandSize::S32, dst, insn.imm, dst));
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::ARSH32_REG => {
                     self.emit_ins(RISCVInstruction::sraw(OperandSize::S32, dst, src, dst));
-                    // self.clear_high_32bits(dst);
+                    self.clear_high_32bits(dst);
                 }
                 ebpf::LE if self.executable.get_sbpf_version().enable_le() => {
                     match insn.imm {
@@ -1021,6 +1029,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], -1, REGISTER_MAP[FRAME_PTR_REG]));
                     self.store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_MAP[FRAME_PTR_REG], call_depth_access);
                     
+                    //TODO
                     if !self.executable.get_sbpf_version().dynamic_stack_frames() {
                         let stack_pointer_access=self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer) as i64;
                         let stack_frame_size = self.config.stack_frame_size as i64 * if self.config.enable_stack_frame_gaps { 2 } else { 1 };
@@ -1425,6 +1434,93 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
+    fn emit_product_quotient_remainder(&mut self, size: OperandSize, alt_dst: bool, division: bool, signed: bool, src: u8, dst: u8, imm: Option<i64>,alu_number: u8) {
+        //         LMUL UHMUL SHMUL UDIV SDIV UREM SREM
+        // ALU     F7/4 F7/4  F7/5  F7/6 F7/7 F7/6 F7/7
+        // src-in  REGISTER_SCRATCH  REGISTER_SCRATCH   REGISTER_SCRATCH   REGISTER_SCRATCH  REGISTER_SCRATCH  REGISTER_SCRATCH  REGISTER_SCRATCH
+        // dst-in  RAX  RAX   RAX   RAX  RAX  RAX  RAX
+        // dst-out RAX  RDX   RDX   RAX  RAX  RDX  RDX
+
+        if division {
+            // Prevent division by zero
+            if imm.is_none() {
+                self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);// Save pc
+                self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
+            }
+
+            // Signed division overflows with MIN / -1.
+            // If we have an immediate and it's not -1, we can skip the following check.
+            if signed && imm.unwrap_or(-1) == -1 {
+                self.load_immediate(size, T1, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as i64 });
+                self.emit_ins(RISCVInstruction::bne(OperandSize::S64,dst,REGISTER_SCRATCH,self.relative_to_anchor(ANCHOR_NO_OVERFLOW, 0)));
+
+                if imm.is_none() {
+                    // The exception case is: dst == MIN && src == -1
+                    // Via De Morgan's law becomes: !(dst != MIN || src != -1)
+                    // Also, we know that src != 0 in here, so we can use it to set REGISTER_SCRATCH to something not zero
+                    self.load_immediate(size, T1, -1); // No XOR here because we need to keep the status flags
+                    self.emit_ins(RISCVInstruction::bne(OperandSize::S64,src,REGISTER_SCRATCH,self.relative_to_anchor(ANCHOR_NO_OVERFLOW, 0)));
+                }
+
+                // MIN / -1, raise EbpfError::DivideOverflow
+                self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+                self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_DIV_OVERFLOW, 0), ZERO));
+            }
+        }
+
+        self.set_anchor(ANCHOR_NO_OVERFLOW);
+
+        if let Some(imm) = imm {
+            if self.should_sanitize_constant(imm) {
+                self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_SCRATCH, imm);
+            } else {
+                self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, imm);
+            }
+        } else {
+            self.emit_ins(RISCVInstruction::mov(OperandSize::S64, src, REGISTER_SCRATCH));
+        }
+        if dst != A0 {
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+            self.store(OperandSize::S64, SP, A0, 0);
+            self.emit_ins(RISCVInstruction::mov(OperandSize::S64, dst, A0));
+        }
+        if dst != A2 {
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+            self.store(OperandSize::S64, SP, A2, 0);
+        }
+        if division {
+            if !signed {
+                self.load_immediate(OperandSize::S64, A2, 0);// RDX = 0
+            }
+        }
+
+        match alu_number as u8 {
+            1 => self.emit_ins(RISCVInstruction::mul(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            2 => self.emit_ins(RISCVInstruction::mulhu(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            3 => self.emit_ins(RISCVInstruction::mulh(OperandSize::S64, dst, REGISTER_SCRATCH, dst)), 
+            4 => self.emit_ins(RISCVInstruction::divu(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            5 => self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            6 => self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            _ => {},
+        }
+
+        if dst != A2 {
+            if alt_dst {
+                self.emit_ins(RISCVInstruction::mov(OperandSize::S64, A2, dst));
+            }
+            self.load(OperandSize::S64, SP, 0, A2);
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+        }
+        if dst != A0 {
+            if !alt_dst {
+                self.emit_ins(RISCVInstruction::mov(OperandSize::S64, A0, dst));
+            }
+            self.load(OperandSize::S64, SP, 0, A0);
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+        }
+    }
+
     fn emit_set_exception_kind(&mut self, err: EbpfError) {
         let err_kind = unsafe { *std::ptr::addr_of!(err).cast::<u64>() };
         let err_discriminant = ProgramResult::Err(err).discriminant();
@@ -1521,6 +1617,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 
     fn emit_subroutines(&mut self){
+        //  TODO    
         // Routine for instruction tracing
         if self.config.enable_instruction_tracing {
             self.set_anchor(ANCHOR_TRACE);
@@ -1618,7 +1715,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         // Handler for EbpfError::UnsupportedInstruction
         self.set_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION);
-        // if self.config.enable_instruction_tracing 
+        //TODO if self.config.enable_instruction_tracing 
         self.emit_set_exception_kind(EbpfError::UnsupportedInstruction);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
