@@ -1441,14 +1441,15 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         }
     }
 
+    #[inline]
     fn overflow_handle(&mut self,size: OperandSize,dst: u8,imm: Option<i64>){
         // Signed division overflows with MIN / -1.
         // If we have an immediate and it's not -1, we can skip the following check.
         if imm.unwrap_or(-1) == -1 {
-            self.load_immediate(size, T1, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as i64 });
+            self.load_immediate(size, T5, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as i64 });
             // MIN / -1, raise EbpfError::DivideOverflow
             self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
-            self.emit_ins(RISCVInstruction::beq(OperandSize::S64, dst, T1, self.relative_to_anchor(ANCHOR_DIV_OVERFLOW, 0)));
+            self.emit_ins(RISCVInstruction::beq(OperandSize::S64, dst, T5, self.relative_to_anchor(ANCHOR_DIV_OVERFLOW, 0)));
         }
     }
 
