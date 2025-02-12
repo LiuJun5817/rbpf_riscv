@@ -477,10 +477,12 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, src, dst));
                 }
                 ebpf::SDIV32_IMM => {
+                    self.overflow_handle(OperandSize::S32, dst, Some(insn.imm));
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::SDIV32_REG => {
+                    self.overflow_handle(OperandSize::S32, dst, None);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::divw(OperandSize::S32, dst, src, dst));
@@ -513,19 +515,23 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::SREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.overflow_handle(OperandSize::S32, dst, Some(insn.imm));
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::SREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.overflow_handle(OperandSize::S32, dst, None);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, src, dst));
                 }
                 ebpf::SREM64_IMM if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.overflow_handle(OperandSize::S64, dst, Some(insn.imm));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::rem(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::SREM64_REG if self.executable.get_sbpf_version().enable_pqr() => {
+                    self.overflow_handle(OperandSize::S64, dst, None);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::rem(OperandSize::S64, dst, src, dst));
@@ -749,15 +755,16 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::mulh(OperandSize::S64, dst, src, dst));
                 }
                 ebpf::SDIV64_IMM => {
+                    self.overflow_handle(OperandSize::S64, dst, Some(insn.imm));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::SDIV64_REG => {
+                    self.overflow_handle(OperandSize::S64, dst, None);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
                     self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, src, dst));
                 }
-
                 ebpf::OR64_IMM   => self.emit_sanitized_or(OperandSize::S64, dst, insn.imm),
                 ebpf::OR64_REG   => self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, src, dst)),
                 ebpf::AND64_IMM  => self.emit_sanitized_and(OperandSize::S64, dst, insn.imm),
@@ -1434,6 +1441,17 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         }
     }
 
+    fn overflow_handle(&mut self,size: OperandSize,dst: u8,imm: Option<i64>){
+        // Signed division overflows with MIN / -1.
+        // If we have an immediate and it's not -1, we can skip the following check.
+        if imm.unwrap_or(-1) == -1 {
+            self.load_immediate(size, T1, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as i64 });
+            // MIN / -1, raise EbpfError::DivideOverflow
+            self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
+            self.emit_ins(RISCVInstruction::beq(OperandSize::S64, dst, T1, self.relative_to_anchor(ANCHOR_DIV_OVERFLOW, 0)));
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn emit_product_quotient_remainder(&mut self, size: OperandSize, alt_dst: bool, division: bool, signed: bool, src: u8, dst: u8, imm: Option<i64>,alu_number: u8) {
         //         LMUL UHMUL SHMUL UDIV SDIV UREM SREM
@@ -1502,6 +1520,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             4 => self.emit_ins(RISCVInstruction::divu(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
             5 => self.emit_ins(RISCVInstruction::div(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
             6 => self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
+            7 => self.emit_ins(RISCVInstruction::rem(OperandSize::S64, dst, REGISTER_SCRATCH, dst)),
             _ => {},
         }
 
