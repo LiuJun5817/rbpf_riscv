@@ -1000,6 +1000,38 @@ impl RISCVInstruction {
         }
     }
 
+    ///Sltu rd, rs1, rs2 无符号比较rs1和rs2，rd = (rs1 < rs2) ? 1 : 0
+    #[inline]
+    pub const fn sltu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(3),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0),
+            immediate: None,
+            size,
+        }
+    }
+
+    ///Sltiu rd, rs1, imm 无符号比较rs1和imm，rd = (rs1 < imm) ? 1 : 0
+    #[inline]
+    pub const fn sltiu(source1: u8, immediate: i64, destination: u8) -> Self {
+        Self {
+            inst_type: RISCVInstructionType::I,
+            opcode: 0x13,
+            rd: Some(destination),
+            funct3: Some(3),
+            rs1: Some(source1),
+            immediate: Some(immediate),
+            size: OperandSize::S64,
+            ..Self::DEFAULT
+        }
+    }
+
     /// return from the subroutine
     #[inline]
     pub const fn return_near() -> Self {

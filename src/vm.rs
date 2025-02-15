@@ -1,3 +1,17 @@
+#![allow(clippy::arithmetic_side_effects)]
+// Derived from uBPF <https://github.com/iovisor/ubpf>
+// Copyright 2015 Big Switch Networks, Inc
+//      (uBPF: VM architecture, parts of the interpreter, originally in C)
+// Copyright 2016 6WIND S.A. <quentin.monnet@6wind.com>
+//      (Translation to Rust, MetaBuff/multiple classes addition, hashmaps for syscalls)
+// Copyright 2020 Solana Maintainers <maintainers@solana.com>
+//
+// Licensed under the Apache License, Version 2.0 <http://www.apache.org/licenses/LICENSE-2.0> or
+// the MIT license <http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! Virtual machine for eBPF programs.
+
 use crate::{
     ebpf,
     elf::Executable,
@@ -49,8 +63,6 @@ pub struct Config {
     pub sanitize_user_provided_values: bool,
     /// Throw ElfError::SymbolHashCollision when a BPF function collides with a registered syscall
     pub external_internal_function_hash_collision: bool,
-    // /// Have the verifier reject "jalr x1, x10, offset"要改吗？
-    // pub reject_jalr_x10: bool,
     /// Have the verifier reject "callx r10"
     pub reject_callx_r10: bool,
     /// Avoid copying read only sections when possible
@@ -80,7 +92,7 @@ impl Default for Config {
             enable_address_translation: true,
             enable_stack_frame_gaps: true,
             instruction_meter_checkpoint_distance: 10000,
-            enable_instruction_meter: true, //改成了 false
+            enable_instruction_meter: true,
             enable_instruction_tracing: false,
             enable_symbol_and_section_labels: false,
             reject_broken_elfs: false,
@@ -216,6 +228,57 @@ pub struct CallFrame {
     pub target_pc: u64,
 }
 
+/// A virtual machine to run eBPF programs.
+///
+/// # Examples
+///
+/// ```
+/// use solana_rbpf::{
+///     aligned_memory::AlignedMemory,
+///     ebpf,
+///     elf::Executable,
+///     memory_region::{MemoryMapping, MemoryRegion},
+///     program::{BuiltinProgram, FunctionRegistry, SBPFVersion},
+///     verifier::RequisiteVerifier,
+///     vm::{Config, EbpfVm, TestContextObject},
+/// };
+///
+/// let prog = &[
+///     0x95, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // exit
+/// ];
+/// let mem = &mut [
+///     0xaa, 0xbb, 0x11, 0x22, 0xcc, 0xdd
+/// ];
+///
+/// let loader = std::sync::Arc::new(BuiltinProgram::new_mock());
+/// let function_registry = FunctionRegistry::default();
+/// let mut executable = Executable::<TestContextObject>::from_text_bytes(prog, loader.clone(), SBPFVersion::V2, function_registry).unwrap();
+/// executable.verify::<RequisiteVerifier>().unwrap();
+/// let mut context_object = TestContextObject::new(1);
+/// let sbpf_version = executable.get_sbpf_version();
+///
+/// let mut stack = AlignedMemory::<{ebpf::HOST_ALIGN}>::zero_filled(executable.get_config().stack_size());
+/// let stack_len = stack.len();
+/// let mut heap = AlignedMemory::<{ebpf::HOST_ALIGN}>::with_capacity(0);
+///
+/// let regions: Vec<MemoryRegion> = vec![
+///     executable.get_ro_region(),
+///     MemoryRegion::new_writable(
+///         stack.as_slice_mut(),
+///         ebpf::MM_STACK_START,
+///     ),
+///     MemoryRegion::new_writable(heap.as_slice_mut(), ebpf::MM_HEAP_START),
+///     MemoryRegion::new_writable(mem, ebpf::MM_INPUT_START),
+/// ];
+///
+/// let memory_mapping = MemoryMapping::new(regions, executable.get_config(), sbpf_version).unwrap();
+///
+/// let mut vm = EbpfVm::new(loader, sbpf_version, &mut context_object, memory_mapping, stack_len);
+///
+/// let (instruction_count, result) = vm.execute_program(&executable, true);
+/// assert_eq!(instruction_count, 1);
+/// assert_eq!(result.unwrap(), 0);
+/// ```
 #[repr(C)]
 pub struct EbpfVm<'a, C: ContextObject> {
     /// Needed to exit from the guest back into the host
@@ -310,14 +373,12 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
         self.registers[1] = ebpf::MM_INPUT_START;
         self.registers[ebpf::FRAME_PTR_REG] = self.stack_pointer;
         self.registers[11] = executable.get_entrypoint_instruction_offset() as u64;
-        println!("registers[11]:{:?}", self.registers);
         let config = executable.get_config();
         let initial_insn_count = if config.enable_instruction_meter {
             self.context_object_pointer.get_remaining()
         } else {
             0
         };
-        println!("initial_insn_count:{:?}", initial_insn_count);
         self.previous_instruction_meter = initial_insn_count;
         self.due_insn_count = 0;
         self.program_result = ProgramResult::Ok(0);
@@ -335,27 +396,24 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
             #[cfg(not(feature = "debugger"))]
             while interpreter.step() {}
         } else {
-            // #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
-            // {
-            let compiled_program = match executable
-                .get_compiled_program()
-                .ok_or_else(|| EbpfError::JitNotCompiled)
+            #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
             {
-                Ok(compiled_program) => compiled_program,
-                Err(error) => return (0, ProgramResult::Err(error)),
-            };
-            println!("compiled_program:{:?}", compiled_program.text_section);
-            println!("pc_section:{:?}", compiled_program.pc_section);
-            println!("self.registers:{:?}", self.registers);
-            // compiled_program.invoke(config, self, self.registers);
-            // }
-            // #[cfg(not(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64")))]
-            // {
-            //     return (0, ProgramResult::Err(EbpfError::JitNotCompiled));
-            // }
-            println!("jit编译器开启失败！！！");
+                let compiled_program = match executable
+                    .get_compiled_program()
+                    .ok_or_else(|| EbpfError::JitNotCompiled)
+                {
+                    Ok(compiled_program) => compiled_program,
+                    Err(error) => return (0, ProgramResult::Err(error)),
+                };
+                compiled_program.invoke(config, self, self.registers);
+            }
+            #[cfg(not(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64")))]
+            {
+                return (0, ProgramResult::Err(EbpfError::JitNotCompiled));
+            }
         };
         let instruction_count = if config.enable_instruction_meter {
+            println!("self.due_insn_count:{:?}", self.due_insn_count);
             self.context_object_pointer.consume(self.due_insn_count);
             initial_insn_count.saturating_sub(self.context_object_pointer.get_remaining())
         } else {
@@ -363,6 +421,7 @@ impl<'a, C: ContextObject> EbpfVm<'a, C> {
         };
         let mut result = ProgramResult::Ok(0);
         std::mem::swap(&mut result, &mut self.program_result);
+        println!("self.program_result:{:?}", self.program_result);
         (instruction_count, result)
     }
 

@@ -1,3 +1,10 @@
+//! This module relocates a BPF ELF
+
+// Note: Typically ELF shared objects are loaded using the program headers and
+// not the section headers.  Since we are leveraging the elfkit crate its much
+// easier to use the section headers.  There are cases (reduced size, obfuscation)
+// where the section headers may be removed from the ELF.  If that happens then
+// this loader will need to be re-written to use the program headers instead.
 use crate::{
     aligned_memory::{is_memory_aligned, AlignedMemory},
     ebpf::{self, EF_SBPF_V2, HOST_ALIGN, INSN_SIZE},
@@ -18,7 +25,9 @@ use crate::{
     verifier::Verifier,
     vm::{Config, ContextObject},
 };
+// use std::io::{self, Write};
 
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 use crate::jit::{JitCompiler, JitProgram};
 use byteorder::{ByteOrder, LittleEndian};
 use std::{collections::BTreeMap, fmt::Debug, mem, ops::Range, str, sync::Arc};
@@ -210,7 +219,7 @@ pub struct Executable<C: ContextObject> {
     /// Loader built-in program
     loader: Arc<BuiltinProgram<C>>,
     /// Compiled program and argument
-    //#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
+    #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
     compiled_program: Option<JitProgram>,
 }
 
@@ -245,6 +254,16 @@ impl<C: ContextObject> Executable<C> {
         )
     }
 
+    /// Get the concatenated read-only sections (including the text section)
+    pub fn get_ro_section(&self) -> &[u8] {
+        match &self.ro_section {
+            Section::Owned(_offset, data) => data.as_slice(),
+            Section::Borrowed(_offset, byte_range) => {
+                &self.elf_bytes.as_slice()[byte_range.clone()]
+            }
+        }
+    }
+
     /// Get a memory region that can be used to access the merged readonly section
     pub fn get_ro_region(&self) -> MemoryRegion {
         get_ro_region(&self.ro_section, self.elf_bytes.as_slice())
@@ -255,12 +274,19 @@ impl<C: ContextObject> Executable<C> {
         self.entry_pc
     }
 
+    /// Get the text section offset
+    #[cfg(feature = "debugger")]
+    pub fn get_text_section_offset(&self) -> u64 {
+        self.text_section_info.offset_range.start as u64
+    }
+
     /// Get the loader built-in program
     pub fn get_loader(&self) -> &Arc<BuiltinProgram<C>> {
         &self.loader
     }
 
     /// Get the JIT compiled program
+    #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
     pub fn get_compiled_program(&self) -> Option<&JitProgram> {
         self.compiled_program.as_ref()
     }
@@ -276,26 +302,40 @@ impl<C: ContextObject> Executable<C> {
         Ok(())
     }
 
+    /// JIT compile the executable
+    #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
     pub fn jit_compile(&mut self) -> Result<(), crate::error::EbpfError> {
-        let jit = JitCompiler::<C>::new(self)?;
-        self.compiled_program = Some(jit.compile()?);
-        // println!("hello9");
-        // println!(
-        //     "{:?}",
-        //     self.compiled_program
-        //         .as_ref()
-        //         .unwrap()
-        //         .text_section
-        //         .as_ptr()
-        // );
-        // println!("{:?}", self.compiled_program.as_ref().unwrap().text_section);
-        // let instructions_dec = &*self.compiled_program.as_ref().unwrap().text_section; // 十进制表示
+        // println!("hello7");
+        let jit = JitCompiler::<C>::new(self)?; //创建 JIT 编译器
+                                                //println!("hello8");
+        self.compiled_program = Some(jit.compile()?); //compiled_program 的内容是什么》？对应的汇编  在线的反汇编器   set pc = text_section的起始地址
+        println!("hello9");
+        println!("{:?}", self.compiled_program); //先找到self.compiled_program的地址，然后找内容
+        println!("{:?}", self.compiled_program.as_ref().unwrap() as *const _);
+        println!(
+            "compiled_program:{:?}",
+            self.compiled_program.as_ref().unwrap().pc_section.as_ptr()
+        );
 
-        // // 以十六进制输出
-        // println!("机器指令的十六进制表示：");
-        // for instr in instructions_dec {
-        //     print!("{:02x} ", instr); // 每个指令以十六进制格式打印
-        // }
+        println!("{:?}", self.compiled_program.as_ref().unwrap().page_size);
+        let instructions_dec = &*self.compiled_program.as_ref().unwrap().text_section; // 十进制表示
+
+        // 以十六进制输出
+        println!("机器指令的十六进制表示：");
+        for instr in instructions_dec {
+            print!("{:02x} ", instr); // 每个指令以十六进制格式打印
+        }
+        println!();
+        //println!("{:?}", self.compiled_program.as_ref().unwrap().text_section);十进制输出
+        println!(
+            "{:?}",
+            self.compiled_program
+                .as_ref()
+                .unwrap()
+                .text_section
+                .as_ptr()
+        ); //返回的是内部数据的内存地址
+           // println!("{:?}", self.text_section_info);
         Ok(())
     }
 
@@ -341,7 +381,7 @@ impl<C: ContextObject> Executable<C> {
             entry_pc,
             function_registry,
             loader,
-            // #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+            #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
             compiled_program: None,
         })
     }
@@ -463,9 +503,149 @@ impl<C: ContextObject> Executable<C> {
             entry_pc,
             function_registry,
             loader,
-            // #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+            #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
             compiled_program: None,
         })
+    }
+
+    /// Calculate the total memory size of the executable
+    #[rustfmt::skip]
+    #[allow(clippy::size_of_ref)]
+    pub fn mem_size(&self) -> usize {
+        let mut total = mem::size_of::<Self>();
+        total = total
+            // elf bytes
+            .saturating_add(self.elf_bytes.mem_size())
+            // ro section
+            .saturating_add(match &self.ro_section {
+                Section::Owned(_, data) => data.capacity(),
+                Section::Borrowed(_, _) => 0,
+            })
+            // text section info
+            .saturating_add(self.text_section_info.mem_size())
+            // bpf functions
+            .saturating_add(self.function_registry.mem_size());
+
+        #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
+        {
+            // compiled programs
+            total = total.saturating_add(self.compiled_program.as_ref().map_or(0, |program| program.mem_size()));
+        }
+
+        total
+    }
+
+    // Functions exposed for tests
+
+    /// Validates the ELF
+    pub fn validate<'a, P: ElfParser<'a>>(
+        config: &Config,
+        elf: &'a P,
+        elf_bytes: &[u8],
+    ) -> Result<(), ElfError> {
+        let header = elf.header();
+        if header.e_ident.ei_class != ELFCLASS64 {
+            return Err(ElfError::WrongClass);
+        }
+        if header.e_ident.ei_data != ELFDATA2LSB {
+            return Err(ElfError::WrongEndianess);
+        }
+        if header.e_ident.ei_osabi != ELFOSABI_NONE {
+            return Err(ElfError::WrongAbi);
+        }
+        if header.e_machine != EM_BPF && (!config.new_elf_parser || header.e_machine != EM_SBPF) {
+            return Err(ElfError::WrongMachine);
+        }
+        if header.e_type != ET_DYN {
+            return Err(ElfError::WrongType);
+        }
+
+        let sbpf_version = if header.e_flags == EF_SBPF_V2 {
+            if !config.enable_sbpf_v2 {
+                return Err(ElfError::UnsupportedSBPFVersion);
+            }
+            SBPFVersion::V2
+        } else {
+            if !config.enable_sbpf_v1 {
+                return Err(ElfError::UnsupportedSBPFVersion);
+            }
+            SBPFVersion::V1
+        };
+
+        if sbpf_version.enable_elf_vaddr() {
+            if !config.optimize_rodata {
+                // When optimize_rodata=false, we allocate a vector and copy all
+                // rodata sections into it. In that case we can't allow virtual
+                // addresses or we'd potentially have to do huge allocations.
+                return Err(ElfError::UnsupportedSBPFVersion);
+            }
+
+            // This is needed to avoid an overflow error in header.vm_range() as
+            // used by relocate(). See https://github.com/m4b/goblin/pull/306.
+            //
+            // Once we bump to a version of goblin that includes the fix, this
+            // check can be removed, and relocate() will still return
+            // ValueOutOfBounds on malformed program headers.
+            if elf
+                .program_headers()
+                .any(|header| header.p_vaddr().checked_add(header.p_memsz()).is_none())
+            {
+                return Err(ElfError::InvalidProgramHeader);
+            }
+
+            // The toolchain currently emits up to 4 program headers. 10 is a
+            // future proof nice round number.
+            //
+            // program_headers() returns an ExactSizeIterator so count doesn't
+            // actually iterate again.
+            if elf.program_headers().count() >= 10 {
+                return Err(ElfError::InvalidProgramHeader);
+            }
+        }
+
+        let num_text_sections = elf
+            .section_headers()
+            .fold(0, |count: usize, section_header| {
+                if let Some(this_name) = elf.section_name(section_header.sh_name()) {
+                    if this_name == b".text" {
+                        return count.saturating_add(1);
+                    }
+                }
+                count
+            });
+        if 1 != num_text_sections {
+            return Err(ElfError::NotOneTextSection);
+        }
+
+        for section_header in elf.section_headers() {
+            if let Some(name) = elf.section_name(section_header.sh_name()) {
+                if name.starts_with(b".bss")
+                    || (section_header.is_writable()
+                        && (name.starts_with(b".data") && !name.starts_with(b".data.rel")))
+                {
+                    return Err(ElfError::WritableSectionNotSupported(
+                        String::from_utf8_lossy(name).to_string(),
+                    ));
+                }
+            }
+        }
+
+        for section_header in elf.section_headers() {
+            let start = section_header.sh_offset() as usize;
+            let end = section_header
+                .sh_offset()
+                .checked_add(section_header.sh_size())
+                .ok_or(ElfError::ValueOutOfBounds)? as usize;
+            let _ = elf_bytes
+                .get(start..end)
+                .ok_or(ElfError::ValueOutOfBounds)?;
+        }
+        let text_section = elf.section(b".text")?;
+        if !text_section.vm_range().contains(&header.e_entry) {
+            return Err(ElfError::EntrypointOutOfBounds);
+        }
+
+        Ok(())
     }
 
     pub(crate) fn parse_ro_sections<
@@ -647,117 +827,6 @@ impl<C: ContextObject> Executable<C> {
         };
 
         Ok(ro_section)
-    }
-
-    /// Validates the ELF
-    pub fn validate<'a, P: ElfParser<'a>>(
-        config: &Config,
-        elf: &'a P,
-        elf_bytes: &[u8],
-    ) -> Result<(), ElfError> {
-        let header = elf.header();
-        if header.e_ident.ei_class != ELFCLASS64 {
-            return Err(ElfError::WrongClass);
-        }
-        if header.e_ident.ei_data != ELFDATA2LSB {
-            return Err(ElfError::WrongEndianess);
-        }
-        if header.e_ident.ei_osabi != ELFOSABI_NONE {
-            return Err(ElfError::WrongAbi);
-        }
-        if header.e_machine != EM_BPF && (!config.new_elf_parser || header.e_machine != EM_SBPF) {
-            return Err(ElfError::WrongMachine);
-        }
-        if header.e_type != ET_DYN {
-            return Err(ElfError::WrongType);
-        }
-
-        let sbpf_version = if header.e_flags == EF_SBPF_V2 {
-            if !config.enable_sbpf_v2 {
-                return Err(ElfError::UnsupportedSBPFVersion);
-            }
-            SBPFVersion::V2
-        } else {
-            if !config.enable_sbpf_v1 {
-                return Err(ElfError::UnsupportedSBPFVersion);
-            }
-            SBPFVersion::V1
-        };
-
-        if sbpf_version.enable_elf_vaddr() {
-            if !config.optimize_rodata {
-                // When optimize_rodata=false, we allocate a vector and copy all
-                // rodata sections into it. In that case we can't allow virtual
-                // addresses or we'd potentially have to do huge allocations.
-                return Err(ElfError::UnsupportedSBPFVersion);
-            }
-
-            // This is needed to avoid an overflow error in header.vm_range() as
-            // used by relocate(). See https://github.com/m4b/goblin/pull/306.
-            //
-            // Once we bump to a version of goblin that includes the fix, this
-            // check can be removed, and relocate() will still return
-            // ValueOutOfBounds on malformed program headers.
-            if elf
-                .program_headers()
-                .any(|header| header.p_vaddr().checked_add(header.p_memsz()).is_none())
-            {
-                return Err(ElfError::InvalidProgramHeader);
-            }
-
-            // The toolchain currently emits up to 4 program headers. 10 is a
-            // future proof nice round number.
-            //
-            // program_headers() returns an ExactSizeIterator so count doesn't
-            // actually iterate again.
-            if elf.program_headers().count() >= 10 {
-                return Err(ElfError::InvalidProgramHeader);
-            }
-        }
-
-        let num_text_sections = elf
-            .section_headers()
-            .fold(0, |count: usize, section_header| {
-                if let Some(this_name) = elf.section_name(section_header.sh_name()) {
-                    if this_name == b".text" {
-                        return count.saturating_add(1);
-                    }
-                }
-                count
-            });
-        if 1 != num_text_sections {
-            return Err(ElfError::NotOneTextSection);
-        }
-
-        for section_header in elf.section_headers() {
-            if let Some(name) = elf.section_name(section_header.sh_name()) {
-                if name.starts_with(b".bss")
-                    || (section_header.is_writable()
-                        && (name.starts_with(b".data") && !name.starts_with(b".data.rel")))
-                {
-                    return Err(ElfError::WritableSectionNotSupported(
-                        String::from_utf8_lossy(name).to_string(),
-                    ));
-                }
-            }
-        }
-
-        for section_header in elf.section_headers() {
-            let start = section_header.sh_offset() as usize;
-            let end = section_header
-                .sh_offset()
-                .checked_add(section_header.sh_size())
-                .ok_or(ElfError::ValueOutOfBounds)? as usize;
-            let _ = elf_bytes
-                .get(start..end)
-                .ok_or(ElfError::ValueOutOfBounds)?;
-        }
-        let text_section = elf.section(b".text")?;
-        if !text_section.vm_range().contains(&header.e_entry) {
-            return Err(ElfError::EntrypointOutOfBounds);
-        }
-
-        Ok(())
     }
 
     /// Relocates the ELF in-place
@@ -1101,6 +1170,20 @@ impl<C: ContextObject> Executable<C> {
 
         Ok(())
     }
+
+    #[allow(dead_code)]
+    fn dump_data(name: &str, prog: &[u8]) {
+        let mut eight_bytes: Vec<u8> = Vec::new();
+        println!("{name}");
+        for i in prog.iter() {
+            if eight_bytes.len() >= 7 {
+                println!("{eight_bytes:02X?}");
+                eight_bytes.clear();
+            } else {
+                eight_bytes.push(*i);
+            }
+        }
+    }
 }
 
 pub(crate) fn get_ro_region(ro_section: &Section, elf: &[u8]) -> MemoryRegion {
@@ -1116,4 +1199,806 @@ pub(crate) fn get_ro_region(ro_section: &Section, elf: &[u8]) -> MemoryRegion {
         ro_data,
         ebpf::MM_PROGRAM_START.saturating_add(offset as u64),
     )
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        elf_parser::{
+            // FIXME consts::{ELFCLASS32, ELFDATA2MSB, ET_REL},
+            consts::{ELFCLASS32, ELFDATA2MSB, ET_REL},
+            types::{Elf64Ehdr, Elf64Shdr},
+            SECTION_NAME_LENGTH_MAXIMUM,
+        },
+        error::ProgramResult,
+        fuzz::fuzz,
+        program::BuiltinFunction,
+        syscalls,
+        vm::TestContextObject,
+    };
+    use rand::{distributions::Uniform, Rng};
+    use std::{fs::File, io::Read};
+    use test_utils::assert_error;
+    type ElfExecutable = Executable<TestContextObject>;
+
+    fn loader() -> Arc<BuiltinProgram<TestContextObject>> {
+        let mut function_registry =
+            FunctionRegistry::<BuiltinFunction<TestContextObject>>::default();
+        function_registry
+            .register_function_hashed(*b"log", syscalls::SyscallString::vm)
+            .unwrap();
+        function_registry
+            .register_function_hashed(*b"log_64", syscalls::SyscallU64::vm)
+            .unwrap();
+        Arc::new(BuiltinProgram::new_loader(
+            Config::default(),
+            function_registry,
+        ))
+    }
+
+    #[test]
+    fn test_validate() {
+        let elf_bytes = std::fs::read("tests/elfs/relative_call.so").unwrap();
+        let elf = NewParser::parse(&elf_bytes).unwrap();
+        let mut header = elf.header().clone();
+
+        let config = Config::default();
+
+        let write_header = |header: Elf64Ehdr| unsafe {
+            let mut bytes = elf_bytes.clone();
+            std::ptr::write(bytes.as_mut_ptr().cast::<Elf64Ehdr>(), header);
+            bytes
+        };
+
+        ElfExecutable::validate(&config, &elf, &elf_bytes).expect("validation failed");
+
+        header.e_ident.ei_class = ELFCLASS32;
+        let bytes = write_header(header.clone());
+        // the new parser rejects anything other than ELFCLASS64 directly
+        NewParser::parse(&bytes).expect_err("allowed bad class");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed bad class");
+
+        header.e_ident.ei_class = ELFCLASS64;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+
+        header.e_ident.ei_data = ELFDATA2MSB;
+        let bytes = write_header(header.clone());
+        // the new parser only supports little endian
+        NewParser::parse(&bytes).expect_err("allowed big endian");
+
+        header.e_ident.ei_data = ELFDATA2LSB;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+
+        header.e_ident.ei_osabi = 1;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong abi");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong abi");
+
+        header.e_ident.ei_osabi = ELFOSABI_NONE;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+
+        header.e_machine = 42;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong machine");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong machine");
+
+        header.e_machine = EM_BPF;
+        let bytes = write_header(header.clone());
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect("validation failed");
+
+        header.e_type = ET_REL;
+        let bytes = write_header(header);
+        ElfExecutable::validate(&config, &NewParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong type");
+        ElfExecutable::validate(&config, &GoblinParser::parse(&bytes).unwrap(), &elf_bytes)
+            .expect_err("allowed wrong type");
+    }
+
+    #[test]
+    fn test_load() {
+        let mut file = File::open("tests/elfs/relative_call.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    fn test_load_unaligned() {
+        let mut elf_bytes =
+            std::fs::read("tests/elfs/relative_call.so").expect("failed to read elf file");
+        // The default allocator allocates aligned memory. Move the ELF slice to
+        // elf_bytes.as_ptr() + 1 to make it unaligned and test unaligned
+        // parsing.
+        elf_bytes.insert(0, 0);
+        ElfExecutable::load(&elf_bytes[1..], loader()).expect("validation failed");
+    }
+
+    #[test]
+    fn test_entrypoint() {
+        let loader = loader();
+
+        let mut file = File::open("tests/elfs/syscall_static.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let elf = ElfExecutable::load(&elf_bytes, loader.clone()).expect("validation failed");
+        let parsed_elf = NewParser::parse(&elf_bytes).unwrap();
+        let executable: &Executable<TestContextObject> = &elf;
+        assert_eq!(0, executable.get_entrypoint_instruction_offset());
+
+        let write_header = |header: Elf64Ehdr| unsafe {
+            let mut bytes = elf_bytes.clone();
+            std::ptr::write(bytes.as_mut_ptr().cast::<Elf64Ehdr>(), header);
+            bytes
+        };
+
+        let mut header = parsed_elf.header().clone();
+        let initial_e_entry = header.e_entry;
+
+        header.e_entry += 8;
+        let elf_bytes = write_header(header.clone());
+        let elf = ElfExecutable::load(&elf_bytes, loader.clone()).expect("validation failed");
+        let executable: &Executable<TestContextObject> = &elf;
+        assert_eq!(1, executable.get_entrypoint_instruction_offset());
+
+        header.e_entry = 1;
+        let elf_bytes = write_header(header.clone());
+        assert!(matches!(
+            ElfExecutable::load(&elf_bytes, loader.clone()),
+            Err(ElfError::EntrypointOutOfBounds)
+        ));
+
+        header.e_entry = u64::MAX;
+        let elf_bytes = write_header(header.clone());
+        assert!(matches!(
+            ElfExecutable::load(&elf_bytes, loader.clone()),
+            Err(ElfError::EntrypointOutOfBounds)
+        ));
+
+        header.e_entry = initial_e_entry + ebpf::INSN_SIZE as u64 + 1;
+        let elf_bytes = write_header(header.clone());
+        assert!(matches!(
+            ElfExecutable::load(&elf_bytes, loader.clone()),
+            Err(ElfError::InvalidEntrypoint)
+        ));
+
+        header.e_entry = initial_e_entry;
+        let elf_bytes = write_header(header);
+        let elf = ElfExecutable::load(&elf_bytes, loader).expect("validation failed");
+        let executable: &Executable<TestContextObject> = &elf;
+        assert_eq!(0, executable.get_entrypoint_instruction_offset());
+    }
+
+    #[test]
+    #[ignore]
+    fn test_fuzz_load() {
+        let loader = loader();
+
+        // Random bytes, will mostly fail due to lack of ELF header so just do a few
+        let mut rng = rand::thread_rng();
+        let range = Uniform::new(0, 255);
+        println!("random bytes");
+        for _ in 0..1_000 {
+            let elf_bytes: Vec<u8> = (0..100).map(|_| rng.sample(range)).collect();
+            let _ = ElfExecutable::load(&elf_bytes, loader.clone());
+        }
+
+        // Take a real elf and mangle it
+
+        let mut file = File::open("tests/elfs/noop.so").expect("file open failed");
+        let mut elf_bytes = Vec::new();
+        file.read_to_end(&mut elf_bytes)
+            .expect("failed to read elf file");
+        let parsed_elf = NewParser::parse(&elf_bytes).unwrap();
+
+        // focus on elf header, small typically 64 bytes
+        println!("mangle elf header");
+        fuzz(
+            &elf_bytes,
+            1_000_000,
+            100,
+            0..parsed_elf.header().e_ehsize as usize,
+            0..255,
+            |bytes: &mut [u8]| {
+                let _ = ElfExecutable::load(bytes, loader.clone());
+            },
+        );
+
+        // focus on section headers
+        println!("mangle section headers");
+        fuzz(
+            &elf_bytes,
+            1_000_000,
+            100,
+            parsed_elf.header().e_shoff as usize..elf_bytes.len(),
+            0..255,
+            |bytes: &mut [u8]| {
+                let _ = ElfExecutable::load(bytes, loader.clone());
+            },
+        );
+
+        // mangle whole elf randomly
+        println!("mangle whole elf");
+        fuzz(
+            &elf_bytes,
+            1_000_000,
+            100,
+            0..elf_bytes.len(),
+            0..255,
+            |bytes: &mut [u8]| {
+                let _ = ElfExecutable::load(bytes, loader.clone());
+            },
+        );
+    }
+
+    fn new_section(sh_addr: u64, sh_size: u64) -> Elf64Shdr {
+        Elf64Shdr {
+            sh_addr,
+            sh_offset: sh_addr
+                .checked_sub(ebpf::MM_PROGRAM_START)
+                .unwrap_or(sh_addr),
+            sh_size,
+            sh_name: 0,
+            sh_type: 0,
+            sh_flags: 0,
+            sh_link: 0,
+            sh_info: 0,
+            sh_addralign: 0,
+            sh_entsize: 0,
+        }
+    }
+
+    #[test]
+    fn test_owned_ro_sections_not_contiguous() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+
+        // there's a non-rodata section between two rodata sections
+        let s1 = new_section(10, 10);
+        let s2 = new_section(20, 10);
+        let s3 = new_section(30, 10);
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+            (Some(b".text"), &s1),
+            (Some(b".dynamic"), &s2),
+            (Some(b".rodata"), &s3),
+        ];
+        assert!(matches!(
+            ElfExecutable::parse_ro_sections(
+                &config,
+                &SBPFVersion::V1,
+                sections,
+                &elf_bytes,
+            ),
+            Ok(Section::Owned(offset, data)) if offset == 10 && data.len() == 30
+        ));
+    }
+
+    #[test]
+    fn test_owned_ro_sections_with_sh_offset() {
+        let config = Config {
+            reject_broken_elfs: false,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        // s2 is at a custom sh_offset. We need to merge into an owned buffer so
+        // s2 can be moved to the right address offset.
+        let s1 = new_section(10, 10);
+        let mut s2 = new_section(20, 10);
+        s2.sh_offset = 30;
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 2] =
+            [(Some(b".text"), &s1), (Some(b".rodata"), &s2)];
+        assert!(matches!(
+            ElfExecutable::parse_ro_sections(
+                &config,
+                &SBPFVersion::V1,
+                sections,
+                &elf_bytes,
+            ),
+            Ok(Section::Owned(offset, data)) if offset == 10 && data.len() == 20
+        ));
+    }
+
+    #[test]
+    fn test_sh_offset_not_same_as_vaddr() {
+        let config = Config {
+            reject_broken_elfs: true,
+            enable_sbpf_v2: false,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        let mut s1 = new_section(10, 10);
+
+        {
+            let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+            assert!(ElfExecutable::parse_ro_sections(
+                &config,
+                &SBPFVersion::V1,
+                sections,
+                &elf_bytes
+            )
+            .is_ok());
+        }
+
+        s1.sh_offset = 0;
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V1, sections, &elf_bytes),
+            Err(ElfError::ValueOutOfBounds)
+        );
+    }
+
+    #[test]
+    fn test_invalid_sh_offset_larger_than_vaddr() {
+        let config = Config {
+            reject_broken_elfs: true,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        let s1 = new_section(10, 10);
+        // sh_offset > sh_addr is invalid
+        let mut s2 = new_section(20, 10);
+        s2.sh_offset = 30;
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 2] =
+            [(Some(b".text"), &s1), (Some(b".rodata"), &s2)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes,),
+            Err(ElfError::ValueOutOfBounds)
+        );
+    }
+
+    #[test]
+    fn test_reject_non_constant_sh_offset() {
+        let config = Config {
+            reject_broken_elfs: true,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        let mut s1 = new_section(ebpf::MM_PROGRAM_START + 10, 10);
+        let mut s2 = new_section(ebpf::MM_PROGRAM_START + 20, 10);
+        // The sections don't have a constant offset. This is rejected since it
+        // makes it impossible to efficiently map virtual addresses to byte
+        // offsets
+        s1.sh_offset = 100;
+        s2.sh_offset = 120;
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 2] =
+            [(Some(b".text"), &s1), (Some(b".rodata"), &s2)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes),
+            Err(ElfError::ValueOutOfBounds)
+        );
+    }
+
+    #[test]
+    fn test_borrowed_ro_sections_with_constant_sh_offset() {
+        let config = Config {
+            reject_broken_elfs: true,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        let mut s1 = new_section(ebpf::MM_PROGRAM_START + 10, 10);
+        let mut s2 = new_section(ebpf::MM_PROGRAM_START + 20, 10);
+        // the sections have a constant offset (100)
+        s1.sh_offset = 100;
+        s2.sh_offset = 110;
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 2] =
+            [(Some(b".text"), &s1), (Some(b".rodata"), &s2)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes),
+            Ok(Section::Borrowed(10, 100..120))
+        );
+    }
+
+    #[test]
+    fn test_owned_ro_region_no_initial_gap() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+
+        // need an owned buffer so we can zero the address space taken by s2
+        let s1 = new_section(0, 10);
+        let s2 = new_section(10, 10);
+        let s3 = new_section(20, 10);
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+            (Some(b".text"), &s1),
+            (Some(b".dynamic"), &s2),
+            (Some(b".rodata"), &s3),
+        ];
+        let ro_section =
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V1, sections, &elf_bytes)
+                .unwrap();
+        let ro_region = get_ro_region(&ro_section, &elf_bytes);
+        let owned_section = match &ro_section {
+            Section::Owned(_offset, data) => data.as_slice(),
+            _ => panic!(),
+        };
+
+        // [0..s3.sh_addr + s3.sh_size] is the valid ro memory area
+        assert!(matches!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START, s3.sh_addr + s3.sh_size),
+            ProgramResult::Ok(ptr) if ptr == owned_section.as_ptr() as u64,
+        ));
+
+        // one byte past the ro section is not mappable
+        assert_error!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size, 1),
+            "InvalidVirtualAddress({})",
+            ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size
+        );
+    }
+
+    #[test]
+    fn test_owned_ro_region_initial_gap_mappable() {
+        let config = Config {
+            optimize_rodata: false,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        // the first section starts at a non-zero offset
+        let s1 = new_section(10, 10);
+        let s2 = new_section(20, 10);
+        let s3 = new_section(30, 10);
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+            (Some(b".text"), &s1),
+            (Some(b".dynamic"), &s2),
+            (Some(b".rodata"), &s3),
+        ];
+        // V2 requires optimize_rodata=true
+        let ro_section =
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V1, sections, &elf_bytes)
+                .unwrap();
+        let ro_region = get_ro_region(&ro_section, &elf_bytes);
+        let owned_section = match &ro_section {
+            Section::Owned(_offset, data) => data.as_slice(),
+            _ => panic!(),
+        };
+
+        // [s1.sh_addr..s3.sh_addr + s3.sh_size] is where the readonly data is.
+        // But for backwards compatibility (config.optimize_rodata=false)
+        // [0..s1.sh_addr] is mappable too (and zeroed).
+        assert!(matches!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START, s3.sh_addr + s3.sh_size),
+            ProgramResult::Ok(ptr) if ptr == owned_section.as_ptr() as u64,
+        ));
+
+        // one byte past the ro section is not mappable
+        assert_error!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size, 1),
+            "InvalidVirtualAddress({})",
+            ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size
+        );
+    }
+
+    #[test]
+    fn test_owned_ro_region_initial_gap_map_error() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+
+        // the first section starts at a non-zero offset
+        let s1 = new_section(10, 10);
+        let s2 = new_section(20, 10);
+        let s3 = new_section(30, 10);
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+            (Some(b".text"), &s1),
+            (Some(b".dynamic"), &s2),
+            (Some(b".rodata"), &s3),
+        ];
+        let ro_section =
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V1, sections, &elf_bytes)
+                .unwrap();
+        let owned_section = match &ro_section {
+            Section::Owned(_offset, data) => data.as_slice(),
+            _ => panic!(),
+        };
+        let ro_region = get_ro_region(&ro_section, &elf_bytes);
+
+        // s1 starts at sh_addr=10 so [MM_PROGRAM_START..MM_PROGRAM_START + 10] is not mappable
+
+        // the low bound of the initial gap is not mappable
+        assert_error!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START, 1),
+            "InvalidVirtualAddress({})",
+            ebpf::MM_PROGRAM_START
+        );
+
+        // the hi bound of the initial gap is not mappable
+        assert_error!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s1.sh_addr - 1, 1),
+            "InvalidVirtualAddress({})",
+            ebpf::MM_PROGRAM_START + 9
+        );
+
+        // [s1.sh_addr..s3.sh_addr + s3.sh_size] is the valid ro memory area
+        assert!(matches!(
+            ro_region.vm_to_host(
+                ebpf::MM_PROGRAM_START + s1.sh_addr,
+                s3.sh_addr + s3.sh_size - s1.sh_addr
+            ),
+            ProgramResult::Ok(ptr) if ptr == owned_section.as_ptr() as u64,
+        ));
+
+        // one byte past the ro section is not mappable
+        assert_error!(
+            ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size, 1),
+            "InvalidVirtualAddress({})",
+            ebpf::MM_PROGRAM_START + s3.sh_addr + s3.sh_size
+        );
+    }
+
+    #[test]
+    fn test_borrowed_ro_sections_disabled() {
+        let config = Config {
+            optimize_rodata: false,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        // s1 and s2 are contiguous, the rodata section can be borrowed from the
+        // original elf input but config.borrow_rodata=false
+        let s1 = new_section(0, 10);
+        let s2 = new_section(10, 10);
+
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 2] =
+            [(Some(b".text"), &s1), (Some(b".rodata"), &s2)];
+        assert!(matches!(
+            ElfExecutable::parse_ro_sections(
+                &config,
+                &SBPFVersion::V1, // v2 requires optimize_rodata=true
+                sections,
+                &elf_bytes,
+            ),
+            Ok(Section::Owned(offset, data)) if offset == 0 && data.len() == 20
+        ));
+    }
+
+    #[test]
+    fn test_borrowed_ro_sections() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+        for (vaddr_base, sbpf_version) in [
+            (0, SBPFVersion::V1),
+            (ebpf::MM_PROGRAM_START, SBPFVersion::V2),
+        ] {
+            let s1 = new_section(vaddr_base, 10);
+            let s2 = new_section(vaddr_base + 20, 10);
+            let s3 = new_section(vaddr_base + 40, 10);
+            let s4 = new_section(vaddr_base + 50, 10);
+            let sections: [(Option<&[u8]>, &Elf64Shdr); 4] = [
+                (Some(b".dynsym"), &s1),
+                (Some(b".text"), &s2),
+                (Some(b".rodata"), &s3),
+                (Some(b".dynamic"), &s4),
+            ];
+            assert_eq!(
+                ElfExecutable::parse_ro_sections(&config, &sbpf_version, sections, &elf_bytes),
+                Ok(Section::Borrowed(20, 20..50))
+            );
+        }
+    }
+
+    #[test]
+    fn test_borrowed_ro_region_no_initial_gap() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+        for (vaddr_base, sbpf_version) in [
+            (0, SBPFVersion::V1),
+            (ebpf::MM_PROGRAM_START, SBPFVersion::V2),
+        ] {
+            let s1 = new_section(vaddr_base, 10);
+            let s2 = new_section(vaddr_base + 10, 10);
+            let s3 = new_section(vaddr_base + 20, 10);
+            let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+                (Some(b".text"), &s1),
+                (Some(b".rodata"), &s2),
+                (Some(b".dynamic"), &s3),
+            ];
+            let ro_section =
+                ElfExecutable::parse_ro_sections(&config, &sbpf_version, sections, &elf_bytes)
+                    .unwrap();
+            let ro_region = get_ro_region(&ro_section, &elf_bytes);
+
+            // s1 starts at sh_offset=0 so [0..s2.sh_offset + s2.sh_size]
+            // is the valid ro memory area
+            assert!(matches!(
+                ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s1.sh_offset, s2.sh_offset + s2.sh_size),
+                ProgramResult::Ok(ptr) if ptr == elf_bytes.as_ptr() as u64,
+            ));
+
+            // one byte past the ro section is not mappable
+            assert_error!(
+                ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s3.sh_offset, 1),
+                "InvalidVirtualAddress({})",
+                ebpf::MM_PROGRAM_START + s3.sh_offset
+            );
+        }
+    }
+
+    #[test]
+    fn test_borrowed_ro_region_initial_gap() {
+        let config = Config::default();
+        let elf_bytes = [0u8; 512];
+        for (vaddr_base, sbpf_version) in [
+            (0, SBPFVersion::V1),
+            (ebpf::MM_PROGRAM_START, SBPFVersion::V2),
+        ] {
+            let s1 = new_section(vaddr_base, 10);
+            let s2 = new_section(vaddr_base + 10, 10);
+            let s3 = new_section(vaddr_base + 20, 10);
+            let sections: [(Option<&[u8]>, &Elf64Shdr); 3] = [
+                (Some(b".dynamic"), &s1),
+                (Some(b".text"), &s2),
+                (Some(b".rodata"), &s3),
+            ];
+            let ro_section =
+                ElfExecutable::parse_ro_sections(&config, &sbpf_version, sections, &elf_bytes)
+                    .unwrap();
+            let ro_region = get_ro_region(&ro_section, &elf_bytes);
+
+            // s2 starts at sh_addr=10 so [0..10] is not mappable
+
+            // the low bound of the initial gap is not mappable
+            assert_error!(
+                ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s1.sh_offset, 1),
+                "InvalidVirtualAddress({})",
+                ebpf::MM_PROGRAM_START + s1.sh_offset
+            );
+
+            // the hi bound of the initial gap is not mappable
+            assert_error!(
+                ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s2.sh_offset - 1, 1),
+                "InvalidVirtualAddress({})",
+                ebpf::MM_PROGRAM_START + s2.sh_offset - 1
+            );
+
+            // [s2.sh_offset..s3.sh_offset + s3.sh_size] is the valid ro memory area
+            assert!(matches!(
+                ro_region.vm_to_host(
+                    ebpf::MM_PROGRAM_START + s2.sh_offset,
+                    s3.sh_offset + s3.sh_size - s2.sh_offset
+                ),
+                ProgramResult::Ok(ptr) if ptr == elf_bytes[s2.sh_offset as usize..].as_ptr() as u64,
+            ));
+
+            // one byte past the ro section is not mappable
+            assert_error!(
+                ro_region.vm_to_host(ebpf::MM_PROGRAM_START + s3.sh_offset + s3.sh_size, 1),
+                "InvalidVirtualAddress({})",
+                ebpf::MM_PROGRAM_START + s3.sh_offset + s3.sh_size
+            );
+        }
+    }
+
+    #[test]
+    fn test_reject_rodata_stack_overlap() {
+        let config = Config {
+            enable_sbpf_v2: true,
+            ..Config::default()
+        };
+        let elf_bytes = [0u8; 512];
+
+        // no overlap
+        let mut s1 = new_section(ebpf::MM_STACK_START - 10, 10);
+        s1.sh_offset = 0;
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+        assert!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes)
+                .is_ok()
+        );
+
+        // no overlap
+        let mut s1 = new_section(ebpf::MM_STACK_START, 0);
+        s1.sh_offset = 0;
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+        assert!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes)
+                .is_ok()
+        );
+
+        // overlap
+        let mut s1 = new_section(ebpf::MM_STACK_START, 1);
+        s1.sh_offset = 0;
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes),
+            Err(ElfError::ValueOutOfBounds)
+        );
+
+        // valid start but start + size overlap
+        let mut s1 = new_section(ebpf::MM_STACK_START - 10, 11);
+        s1.sh_offset = 0;
+        let sections: [(Option<&[u8]>, &Elf64Shdr); 1] = [(Some(b".text"), &s1)];
+        assert_eq!(
+            ElfExecutable::parse_ro_sections(&config, &SBPFVersion::V2, sections, &elf_bytes),
+            Err(ElfError::ValueOutOfBounds)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = r#"validation failed: WritableSectionNotSupported(".data")"#)]
+    fn test_writable_data_section() {
+        let elf_bytes =
+            std::fs::read("tests/elfs/data_section.so").expect("failed to read elf file");
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    #[should_panic(expected = r#"validation failed: WritableSectionNotSupported(".bss")"#)]
+    fn test_bss_section() {
+        let elf_bytes =
+            std::fs::read("tests/elfs/bss_section.so").expect("failed to read elf file");
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    #[should_panic(expected = "validation failed: InvalidProgramHeader")]
+    fn test_program_headers_overflow() {
+        let elf_bytes = std::fs::read("tests/elfs/program_headers_overflow.so")
+            .expect("failed to read elf file");
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    #[should_panic(expected = "validation failed: RelativeJumpOutOfBounds(9)")]
+    fn test_relative_call_oob_backward() {
+        let mut elf_bytes =
+            std::fs::read("tests/elfs/relative_call.so").expect("failed to read elf file");
+        LittleEndian::write_i32(&mut elf_bytes[0x104C..0x1050], -11i32);
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    #[should_panic(expected = "validation failed: RelativeJumpOutOfBounds(12)")]
+    fn test_relative_call_oob_forward() {
+        let mut elf_bytes =
+            std::fs::read("tests/elfs/relative_call.so").expect("failed to read elf file");
+        LittleEndian::write_i32(&mut elf_bytes[0x1064..0x1068], 5);
+        ElfExecutable::load(&elf_bytes, loader()).expect("validation failed");
+    }
+
+    #[test]
+    fn test_long_section_name() {
+        let elf_bytes = std::fs::read("tests/elfs/long_section_name.so").unwrap();
+        assert_error!(
+            NewParser::parse(&elf_bytes),
+            "FailedToParse(\"Section or symbol name `{}` is longer than `{}` bytes\")",
+            ".bss.__rust_no_alloc_shim_is_unstable"
+                .get(0..SECTION_NAME_LENGTH_MAXIMUM)
+                .unwrap(),
+            SECTION_NAME_LENGTH_MAXIMUM
+        );
+    }
 }

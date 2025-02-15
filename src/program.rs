@@ -342,7 +342,7 @@ macro_rules! declare_builtin_function {
     };
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::{syscalls, vm::TestContextObject};
@@ -377,4 +377,3 @@ mod tests {
         assert_ne!(builtin_program_a, builtin_program_c);
     }
 }
-*/

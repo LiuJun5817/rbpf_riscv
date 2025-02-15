@@ -3603,7 +3603,7 @@ fn test_instruction_count_syscall() {
 //         config,
 //         [],
 //         (),
-//         TestContextObject::new(2),
+//         TestContextObject::new(3),
 //         ProgramResult::Err(EbpfError::ExceededMaxInstructions),
 //     );
 // }

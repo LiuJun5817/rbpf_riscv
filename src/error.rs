@@ -136,14 +136,14 @@ impl<T: std::fmt::Debug, E: std::fmt::Debug> StableResult<T, E> {
         }
     }
 
-    // #[cfg_attr(
-    //     any(
-    //         not(feature = "jit"),
-    //         target_os = "windows",
-    //         not(target_arch = "x86_64")
-    //     ),
-    //     allow(dead_code)
-    // )]
+    #[cfg_attr(
+        any(
+            not(feature = "jit"),
+            target_os = "windows",
+            not(target_arch = "riscv64")
+        ),
+        allow(dead_code)
+    )]
     pub(crate) fn discriminant(&self) -> u64 {
         unsafe { *std::ptr::addr_of!(*self).cast::<u64>() }
     }
