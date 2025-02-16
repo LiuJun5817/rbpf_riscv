@@ -379,10 +379,11 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
             match insn.opc{
                 ebpf::ADD64_IMM if insn.dst == STACK_PTR_REG as u8 && self.executable.get_sbpf_version().dynamic_stack_frames() =>{
-                    let stack_ptr_access = self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer);
+                    let stack_ptr_access = self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer) as i64;
+                    self.load(OperandSize::S64, REGISTER_PTR_TO_VM, stack_ptr_access, T5);
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
-                    self.load(OperandSize::S64, REGISTER_PTR_TO_VM, stack_ptr_access as i64, REGISTER_PTR_TO_VM);
-                    self.emit_ins(RISCVInstruction::add(OperandSize::S64, T1, REGISTER_PTR_TO_VM, REGISTER_PTR_TO_VM));
+                    self.emit_ins(RISCVInstruction::add(OperandSize::S64, T5, T1, T5));
+                    self.store(OperandSize::S64, REGISTER_PTR_TO_VM, T5, stack_ptr_access);
                 }
 
                 ebpf::LD_DW_IMM if self.executable.get_sbpf_version().enable_lddw() => {
@@ -468,6 +469,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::DIV32_IMM | ebpf::UDIV32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S32, false, T1, dst);
                     self.emit_ins(RISCVInstruction::divuw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::DIV32_REG | ebpf::UDIV32_REG => {
@@ -485,6 +487,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::MOD32_IMM if !self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S32, false, T1, dst);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::MOD32_REG if !self.executable.get_sbpf_version().enable_pqr() => {
@@ -493,6 +496,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::UREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S32, false, T1, dst);
                     self.emit_ins(RISCVInstruction::remuw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::UREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
@@ -501,6 +505,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::UREM64_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S64, false, T1, dst);
                     self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::UREM64_REG if self.executable.get_sbpf_version().enable_pqr() => {
@@ -510,11 +515,11 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 ebpf::SREM32_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
                     self.div_err_handle(OperandSize::S32, true, T1, dst);
-                    self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, T1, dst));
+                    self.emit_ins(RISCVInstruction::remw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::SREM32_REG if self.executable.get_sbpf_version().enable_pqr() => {
                     self.div_err_handle(OperandSize::S32, true, src, dst);
-                    self.emit_ins(RISCVInstruction::rem(OperandSize::S32, dst, src, dst));
+                    self.emit_ins(RISCVInstruction::remw(OperandSize::S32, dst, src, dst));
                 }
                 ebpf::SREM64_IMM if self.executable.get_sbpf_version().enable_pqr() => {
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
@@ -710,10 +715,12 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::DIV64_IMM | ebpf::UDIV64_IMM => {
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S64, false, T1, dst);
                     self.emit_ins(RISCVInstruction::divu(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::MOD64_IMM => {
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
+                    self.div_err_handle(OperandSize::S64, false, T1, dst);
                     self.emit_ins(RISCVInstruction::remu(OperandSize::S64, dst, T1, dst));
                 }
                 ebpf::MUL64_REG | ebpf::LMUL64_REG => {
@@ -1643,7 +1650,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Handler for EbpfError::DivideOverflow
         self.set_anchor(ANCHOR_DIV_OVERFLOW);
         self.emit_set_exception_kind(EbpfError::DivideOverflow);
-        println!("Handler for EbpfError::DivideOverflow");
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
         // Handler for EbpfError::UnsupportedInstruction
@@ -1684,7 +1690,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.load(OperandSize::S64, SP, 0, REGISTER_SCRATCH);
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
         self.load(OperandSize::S64, T5, 0, T4);
-        self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T1, T4, self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0)));
+        self.emit_ins(RISCVInstruction::bne(OperandSize::S32, T1, T4, self.relative_to_anchor(ANCHOR_EPILOGUE, 0)));
         // Store Ok value in result register
         self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
         self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, REGISTER_SCRATCH));
@@ -1931,7 +1937,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
                         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
-                        self.store(OperandSize::S64, SP, reg, offset as i64);//有问题
+                        self.store(OperandSize::S64, SP, reg, offset as i64);
                     } else {
                         self.load(OperandSize::S64, reg, offset as i64,dst);
                     }
@@ -1939,10 +1945,11 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 Value::RegisterPlusConstant32(reg, offset, user_provided) => {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
-                        self.store(OperandSize::S64, SP, reg, current_offset);
-                        current_offset += 8;
-                        self.load_immediate(OperandSize::S64, T1, offset as i64 + SP as i64);
-                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, SP, T1, SP));
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                        self.store(OperandSize::S64, SP, reg, 0);
+                        self.load(OperandSize::S64, SP, 0, T5);
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T5, 1, T5));
+                        self.store(OperandSize::S64, SP, T5, 0);
                     } else {
                         self.load_immediate(OperandSize::S64, T1, offset as i64);
                         self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, T1, dst));
@@ -1951,10 +1958,11 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 Value::RegisterPlusConstant64(reg, offset, user_provided) => {
                     debug_assert!(!user_provided);
                     if is_stack_argument {
-                        self.store(OperandSize::S64, SP, reg, current_offset);
-                        current_offset += 8;
-                        self.load_immediate(OperandSize::S64, T1, offset as i64 + SP as i64);
-                        self.emit_ins(RISCVInstruction::add(OperandSize::S64, SP, T1, SP));
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+                        self.store(OperandSize::S64, SP, reg, 0);
+                        self.load(OperandSize::S64, SP, 0, T5);
+                        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T5, 1, T5));
+                        self.store(OperandSize::S64, SP, T5, 0);
                     } else {
                         self.load_immediate(OperandSize::S64, T1, offset as i64);
                         self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, T1, dst));

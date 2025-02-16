@@ -371,6 +371,23 @@ impl RISCVInstruction {
         }
     }
 
+    /// Multiply rs1 (signed) and rs2 (unsigned) and store high 64 bits in destination (MULHSU rd, rs1, rs2)
+    #[inline]
+    pub const fn mulhsu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x33, // R-type opcode for arithmetic operations
+            rd: Some(destination),
+            funct3: Some(0x2), // funct3 for MULHSU
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1), // funct7 for MULHSU
+            immediate: None,
+            size,
+        }
+    }
+
     /// Multiply rs1 and rs2, and store the high 64 bits of the result in rd (MULH rd, rs1, rs2)
     #[inline]
     pub const fn mulh(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
@@ -497,6 +514,23 @@ impl RISCVInstruction {
         Self {
             inst_type: RISCVInstructionType::R,
             opcode: 0x33,
+            rd: Some(destination),
+            funct3: Some(0x6),
+            rs1: Some(source1),
+            rs2: Some(source2),
+            funct7: Some(0x1),
+            immediate: None,
+            size,
+        }
+    }
+
+    /// Remainder of 32 bits signed division rs1 by rs2 (REMW rd, rs1, rs2)
+    #[inline]
+    pub const fn remw(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+        Self {
+            inst_type: RISCVInstructionType::R,
+            opcode: 0x3B,
             rd: Some(destination),
             funct3: Some(0x6),
             rs1: Some(source1),
@@ -1019,7 +1053,8 @@ impl RISCVInstruction {
 
     ///Sltiu rd, rs1, imm 无符号比较rs1和imm，rd = (rs1 < imm) ? 1 : 0
     #[inline]
-    pub const fn sltiu(source1: u8, immediate: i64, destination: u8) -> Self {
+    pub const fn sltiu(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
         Self {
             inst_type: RISCVInstructionType::I,
             opcode: 0x13,
@@ -1027,7 +1062,7 @@ impl RISCVInstruction {
             funct3: Some(3),
             rs1: Some(source1),
             immediate: Some(immediate),
-            size: OperandSize::S64,
+            size,
             ..Self::DEFAULT
         }
     }
