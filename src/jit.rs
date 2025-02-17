@@ -364,7 +364,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             if self.last_instruction_meter_validation_pc + self.config.instruction_meter_checkpoint_distance <= self.pc {
                 self.emit_validate_instruction_count(true, Some(self.pc));
             }
-            //TODO
             if self.config.enable_instruction_tracing {
                 println!("指令追踪开启：");
                 self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
@@ -1028,7 +1027,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, REGISTER_MAP[FRAME_PTR_REG], -1, REGISTER_MAP[FRAME_PTR_REG]));
                     self.store(OperandSize::S64, REGISTER_PTR_TO_VM, REGISTER_MAP[FRAME_PTR_REG], call_depth_access);
                     
-                    //TODO
                     if !self.executable.get_sbpf_version().dynamic_stack_frames() {
                         let stack_pointer_access=self.slot_in_vm(RuntimeEnvironmentSlot::StackPointer) as i64;
                         let stack_frame_size = self.config.stack_frame_size as i64 * if self.config.enable_stack_frame_gaps { 2 } else { 1 };
@@ -1470,7 +1468,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             // The exception case is: dst == MIN && src == -1
             // Via De Morgan's law becomes: !(dst != MIN || src != -1)
             // Also, we know that src != 0 in here, so we can use it to set REGISTER_SCRATCH to something not zero
-            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T6, 1, T5));
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, src, 1, T5));
             self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T5, 1, T5));
 
             // MIN / -1, raise EbpfError::DivideOverflow
@@ -1577,7 +1575,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 
     fn emit_subroutines(&mut self){
-        //  TODO    
         // Routine for instruction tracing
         if self.config.enable_instruction_tracing {
             self.set_anchor(ANCHOR_TRACE);
@@ -1675,7 +1672,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         // Handler for EbpfError::UnsupportedInstruction
         self.set_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION);
-        //TODO if self.config.enable_instruction_tracing 
+        // if self.config.enable_instruction_tracing 
         self.emit_set_exception_kind(EbpfError::UnsupportedInstruction);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
