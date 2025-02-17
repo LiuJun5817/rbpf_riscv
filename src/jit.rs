@@ -449,7 +449,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::SUB32_IMM  =>{
                     if self.executable.get_sbpf_version().swap_sub_reg_imm_operands() {
-                        self.emit_ins(RISCVInstruction::sub(OperandSize::S32, ZERO, dst, dst));
+                        self.emit_ins(RISCVInstruction::subw(OperandSize::S32, ZERO, dst, dst));
                         if insn.imm != 0{
                             self.emit_sanitized_add(OperandSize::S32, dst, insn.imm);
                         }
@@ -462,7 +462,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 ebpf::MUL32_IMM | ebpf::LMUL32_IMM => {
                     self.load_immediate(OperandSize::S32, T1, insn.imm);
-                    self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, T1, src, dst));
+                    self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, dst, T1, dst));
                 }
                 ebpf::MUL32_REG | ebpf::LMUL32_REG => {
                     self.emit_ins(RISCVInstruction::mulw(OperandSize::S32, dst, src, dst));
@@ -1321,10 +1321,18 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     pub fn emit_sanitized_add(&mut self,size: OperandSize, destination: u8, immediate: i64) {
         if self.should_sanitize_constant(immediate) {
             self.emit_sanitized_load_immediate(size, T4, immediate);
-            self.emit_ins(RISCVInstruction::add(size, T4, destination, destination));
+            if size == OperandSize::S32 {
+                self.emit_ins(RISCVInstruction::addw(size, T4, destination, destination));
+            } else {
+                self.emit_ins(RISCVInstruction::add(size, T4, destination, destination));
+            }
         } else {
             self.load_immediate(size, T1, immediate);
-            self.emit_ins(RISCVInstruction::add(size, T1, destination, destination));
+            if size == OperandSize::S32 {
+                self.emit_ins(RISCVInstruction::addw(size, T1, destination, destination));
+            } else {
+                self.emit_ins(RISCVInstruction::add(size, T1, destination, destination));
+            }
         }
     }
 
@@ -1332,10 +1340,18 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     pub fn emit_sanitized_sub(&mut self,size: OperandSize, destination: u8, immediate: i64) {
         if self.should_sanitize_constant(immediate) {
             self.emit_sanitized_load_immediate(size, T4, immediate);
-            self.emit_ins(RISCVInstruction::sub(size, destination, T4, destination));
+            if size == OperandSize::S32 {
+                self.emit_ins(RISCVInstruction::subw(size, destination, T4, destination));
+            } else {
+                self.emit_ins(RISCVInstruction::sub(size, destination, T4, destination));
+            }
         } else {
             self.load_immediate(size, T1, immediate);
-            self.emit_ins(RISCVInstruction::sub(size, destination, T1, destination));
+            if size == OperandSize::S32 {
+                self.emit_ins(RISCVInstruction::subw(size, destination, T1, destination));
+            } else {
+                self.emit_ins(RISCVInstruction::sub(size, destination, T1, destination));
+            }
         }
     }
 
@@ -1435,9 +1451,14 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
     #[inline]
     fn div_err_handle(&mut self, size: OperandSize, signed: bool, src: u8, dst: u8){
+        self.emit_ins(RISCVInstruction::mov(OperandSize::S64, src, T6));
+        if size == OperandSize::S32 {
+            self.clear_high_32bits(T6);
+        }
+
         // Prevent division by zero
         self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);// Save pc
-        self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
+        self.emit_ins(RISCVInstruction::beq(OperandSize::S64, T6, ZERO, self.relative_to_anchor(ANCHOR_DIV_BY_ZERO, 0)));
 
         // Signed division overflows with MIN / -1.
         // If we have an immediate and it's not -1, we can skip the following check.
@@ -1449,7 +1470,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             // The exception case is: dst == MIN && src == -1
             // Via De Morgan's law becomes: !(dst != MIN || src != -1)
             // Also, we know that src != 0 in here, so we can use it to set REGISTER_SCRATCH to something not zero
-            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, src, 1, T5));
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T6, 1, T5));
             self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T5, 1, T5));
 
             // MIN / -1, raise EbpfError::DivideOverflow
