@@ -49,7 +49,7 @@ impl JitProgram {
     fn new(pc: usize, code_size: usize) -> Result<Self, EbpfError> {
         let page_size = get_system_page_size();
         let element_size = std::mem::size_of::<usize>();
-        let pc_loc_table_size = round_to_page_size(pc * element_size, page_size); //riscv中是否可以优化成pc*4？
+        let pc_loc_table_size = round_to_page_size(pc * element_size, page_size);
         let over_allocated_code_size = round_to_page_size(code_size, page_size);
         unsafe {
             let raw = allocate_pages(pc_loc_table_size + over_allocated_code_size)?;
@@ -108,11 +108,10 @@ impl JitProgram {
         unsafe {
             std::arch::asm!(
                 "addi sp, sp, -24",                // 创建栈帧，预留 16 字节空间
-                "sd s1, 0(sp)",                    // 保存 s0 到栈
-                "sd s0, 8(sp)",                    // 保存 s1 到栈
+                "sd s1, 0(sp)",                    // 保存 s1 到栈
+                "sd s0, 8(sp)",                    // 保存 s0 到栈
 
                 "sd sp, 0(t5)",
-
 
                 "mv s1, a0",
                 "ld a0, 0(a7)",           // 加载第 1 个参数到 a0
@@ -129,11 +128,11 @@ impl JitProgram {
                 "ld s5, 72(a7)",          // 加载 s5
                 "ld s0, 80(a7)",          // 加载 s1
                 "ld a7, 88(a7)",          // 加载 a7
-                // 跳转到目标地址并调用
+                // 保存返回地址到栈中，为后续错误处理提供跳转目标地址
                 "auipc t2, 0",
                 "addi t2, t2, 10",
                 "sd t2, 16(sp)",
-                "jalr ra, a6",       // 调用目标函数
+                "jalr ra, a6",       // 跳转到目标地址并调用
 
                 // 恢复被调用者保存寄存器
                 "ld s1, 0(sp)",
@@ -141,8 +140,8 @@ impl JitProgram {
                 "addi sp, sp, 24",                 // 恢复栈帧
 
                 inlateout("t5") &mut vm.host_stack_pointer => _,
-                inlateout("s10") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,//a3
-                inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,//a0
+                inlateout("s10") std::ptr::addr_of_mut!(*vm).cast::<u64>().offset(get_runtime_environment_key() as isize) => _,
+                inlateout("a0") (vm.previous_instruction_meter as i64).wrapping_add(registers[11] as i64) => _,
                 inlateout("a6") self.pc_section[registers[11] as usize] => _,
                 inlateout("a7") &registers => _,
                 lateout("a2") _, lateout("a1") _, lateout("a4") _,
@@ -1462,8 +1461,8 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // If we have an immediate and it's not -1, we can skip the following check.
         if signed  == true {
             self.load_immediate(size, T4, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as u32 as i64 });
-            self.emit_ins(RISCVInstruction::sltu(OperandSize::S64, dst, T4, T4));
-            self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T4, 1, T4));
+            self.emit_ins(RISCVInstruction::sltu(OperandSize::S64, dst, T4, T4));// if (dst < T4) ? 1 : 0 只有dst等于最小值时，结果为0
+            self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T4, 1, T4));// if (T4 < 1) ? 1 : 0
 
             // The exception case is: dst == MIN && src == -1
             // Via De Morgan's law becomes: !(dst != MIN || src != -1)
@@ -1857,8 +1856,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.anchors[anchor] = unsafe { self.result.text_section.as_ptr().add(self.offset_in_text_section) };
     }
 
-    
-
     // instruction_length = 4字节
     #[inline]
     fn relative_to_anchor(&self, anchor: usize, instruction_length: usize) -> i64 {
@@ -2023,7 +2020,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Restore registers from stack
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, if stack_arguments % 2 != 0 { stack_arguments + 1 } else { stack_arguments } * 8, SP));
         // self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 16, SP));
-        // self.load(OperandSize::S64, SP, 8,SP );//???这有什么作用？
+        // self.load(OperandSize::S64, SP, 8,SP );
 
         let mut current_offset = 0;
         for reg in saved_registers.iter() {
@@ -2095,7 +2092,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 } else {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc);
                 }
-                
                 
                 self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
                 self.store(OperandSize::S64, SP, RA, 0);
