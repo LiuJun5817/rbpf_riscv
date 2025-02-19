@@ -1215,7 +1215,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             0xFFFF | 0xFFFFFF | 0xFFFFFFFF | 0xFFFFFFFFFF | 0xFFFFFFFFFFFF | 0xFFFFFFFFFFFFFF
             | 0xFFFFFFFFFFFFFFFF => false,
             v if v <= 0xFF => false,
-            v if !v <= 0xFF => false, //没问题
+            v if !v <= 0xFF => false,
             _ => true,
         }
     }
