@@ -622,16 +622,14 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 ebpf::BE         => {
                     match insn.imm {
-                        16 => {
-                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xff, T1));
+                        16 => {// eg: 0x112233  T1存0x3300 T2存0x22
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xff, T1));// T1:0x33
                             self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 8, T2));
-                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T2, 0xff, T2));
-                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T1, 8, T1));
-                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, dst));
-                            // self.load_immediate(OperandSize::S64, T1, 0xffff);
-                            // self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 16 bit
+                            self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T2, 0xff, T2));// T2:0x22
+                            self.emit_ins(RISCVInstruction::slliw(OperandSize::S32, T1, 8, T1));// T1:0x3300
+                            self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, dst));// dst:0x3322
                         }
-                        32 => {
+                        32 => {// 和处理16位的逻辑一致
                             self.emit_ins(RISCVInstruction::andi(OperandSize::S32, dst, 0xff, T1));
                             self.emit_ins(RISCVInstruction::srliw(OperandSize::S32, dst, 8, T2));
                             self.emit_ins(RISCVInstruction::andi(OperandSize::S32, T2, 0xff, T2));
@@ -646,8 +644,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                             self.emit_ins(RISCVInstruction::or(OperandSize::S64, T1, T2, dst));
                             self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, T3, dst));
                             self.emit_ins(RISCVInstruction::or(OperandSize::S64, dst, T4, dst));
-                            // self.load_immediate(OperandSize::S64, T1, 0xffffffff);
-                            // self.emit_ins(RISCVInstruction::and(OperandSize::S32, dst, T1, dst)); // Mask to 16 bit
                         }
                         64 => {
                             //low32bits
@@ -666,7 +662,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                             self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T3, T5));
                             self.emit_ins(RISCVInstruction::or(OperandSize::S64, T5, T4, T5));
                             self.emit_ins(RISCVInstruction::slli(OperandSize::S64,T5,32,T5));
-                            // self.clear_high_32bits(T5);
+
                             //high32bits
                             self.emit_ins(RISCVInstruction::srli(OperandSize::S64, dst, 32, T1));
                             self.emit_ins(RISCVInstruction::andi(OperandSize::S64, T1, 0xff, T1));
@@ -782,10 +778,10 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
                 // BPF_JMP class
                 ebpf::JA         => {
-                    self.emit_validate_and_profile_instruction_count(false,true, Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(false,true, Some(target_pc));// 检查指令计数是否异常
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
-                    self.emit_ins(RISCVInstruction::jal(jump_offset as i64, ZERO));
+                    self.emit_ins(RISCVInstruction::jal(jump_offset as i64, ZERO));//直接跳转
                 },
                 // Jump if Equal
                 ebpf::JEQ_IMM    => {
@@ -794,7 +790,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64,T1, dst, jump_offset as i64));
-                    self.emit_undo_profile_instruction_count(target_pc);
+                    self.emit_undo_profile_instruction_count(target_pc);// 更新指令计数
                 },
                 ebpf::JEQ_REG    => {
                     self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
@@ -996,7 +992,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                             resolved = true;
                         }
                     }
-
+                    //前两个 if 都没执行说明这个指令有问题，跳转错误处理
                     if !resolved {
                         self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
                         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_CALL_UNSUPPORTED_INSTRUCTION, 0), ZERO));
@@ -1051,7 +1047,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.emit_set_exception_kind(EbpfError::ExecutionOverrun);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
-        self.resolve_jumps();
+        self.resolve_jumps();//处理所有跳转指令
         self.result.seal(self.offset_in_text_section)?;
         Ok(self.result)
     }
@@ -1110,7 +1106,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     /// 判断偏移量并执行store指令
     pub fn store(&mut self,size: OperandSize,source1: u8, source2: u8,offset:i64){
         if offset >= -2048 && offset <= 2047 {
-            // 偏移量在 12 位范围内，使用 ld
+            // 偏移量在 12 位范围内，使用 sd
             self.emit_ins(RISCVInstruction::store(size, source1, source2, offset));
         } else {
             self.load_immediate(size, T1, offset);
@@ -1450,7 +1446,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     fn div_err_handle(&mut self, size: OperandSize, signed: bool, src: u8, dst: u8){
         self.emit_ins(RISCVInstruction::mov(OperandSize::S64, src, T6));
         if size == OperandSize::S32 {
-            self.clear_high_32bits(T6);
+            self.clear_high_32bits(T6);//当src大小为32位时，要把高32位清零来保持一致性
         }
 
         // Prevent division by zero
@@ -1467,18 +1463,18 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             // The exception case is: dst == MIN && src == -1
             // Via De Morgan's law becomes: !(dst != MIN || src != -1)
             // Also, we know that src != 0 in here, so we can use it to set REGISTER_SCRATCH to something not zero
-            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, src, 1, T5));
-            self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T5, 1, T5));
+            self.emit_ins(RISCVInstruction::addi(OperandSize::S64, src, 1, T5));//src等于-1时，T5=0,其它时候都不为0，那作为无符号数进行比较时，不会比1小
+            self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T5, 1, T5));// if (T5 < 1) ? 1 : 0
 
             // MIN / -1, raise EbpfError::DivideOverflow
-            self.emit_ins(RISCVInstruction::and(OperandSize::S64, T5, T4, T5));
+            self.emit_ins(RISCVInstruction::and(OperandSize::S64, T5, T4, T5));//T4和T5都为1时，发生溢出错误
             self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, self.pc as i64);
             println!("ANCHOR_DIV_OVERFLOW!!!!");
             self.emit_ins(RISCVInstruction::bne(OperandSize::S64, T5, ZERO, self.relative_to_anchor(ANCHOR_DIV_OVERFLOW, 0)));
         }
     }
 
-    fn emit_set_exception_kind(&mut self, err: EbpfError) {
+    fn emit_set_exception_kind(&mut self, err: EbpfError) {//保存错误类型和错误描述
         let err_kind = unsafe { *std::ptr::addr_of!(err).cast::<u64>() };
         let err_discriminant = ProgramResult::Err(err).discriminant();
         self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
@@ -1578,7 +1574,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.config.enable_instruction_tracing {
             self.set_anchor(ANCHOR_TRACE);
             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
-            self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, REGISTER_SCRATCH, 0));
+            self.emit_ins(RISCVInstruction::store(OperandSize::S64, SP, REGISTER_SCRATCH, 0)); // 相当于x64里的push操作
             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, REGISTER_MAP.len() as i64 * (-8), SP));
             let mut current_offset = 0;
             for reg in REGISTER_MAP.iter().rev() {
@@ -1620,7 +1616,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Restore stack pointer in case we did not exit gracefully
         
         self.load(OperandSize::S64, REGISTER_PTR_TO_VM, self.slot_in_vm(RuntimeEnvironmentSlot::HostStackPointer) as i64, SP);
-        self.load(OperandSize::S64, SP,16, RA);
+        self.load(OperandSize::S64, SP,16, RA);// 在invoke函数中先把返回地址保存在了栈中
         self.emit_ins(RISCVInstruction::return_near());
         
         // Handler for EbpfError::ExceededMaxInstructions
@@ -1858,7 +1854,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
     // instruction_length = 4字节
     #[inline]
-    fn relative_to_anchor(&self, anchor: usize, instruction_length: usize) -> i64 {
+    fn relative_to_anchor(&self, anchor: usize, instruction_length: usize) -> i64 {//特别注意：riscv的跳转指令的偏移量计算是基于当前指令的起始地址，而 x86 中是先将 PC 设置为指令结束地址再计算偏移量，所以在riscv中这里的instruction_length全部设为0
         let instruction_end = unsafe { self.result.text_section.as_ptr().add(self.offset_in_text_section).add(instruction_length) };
         let destination = self.anchors[anchor];
         debug_assert!(!destination.is_null());
@@ -1874,7 +1870,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             self.result.pc_section[target_pc] as *const u8
         } else {
             println!("Forward!");
-            // Forward jump, needs relocation
+            // Forward jump, needs relocation  前面.add(instruction_length) 为0，所以这里instruction_end.sub(0)也为0，与x86不一样！我的instruction_end就是指令起始地址而不是指令结束地址
             self.text_section_jumps.push(Jump { location: unsafe { instruction_end.sub(0) }, target_pc });
             return 0;
         };
@@ -2133,7 +2129,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             println!("offset_value:{:?}",offset_value);
             let address: *const u32 = jump.location as *const u32;  // 这里是你的示例地址
     
-            unsafe {
+            unsafe {// 直接对指令的机器码进行修改
                 // 从指定的地址读取4个字节的指令
                 let original_instruction = *address;
                 
