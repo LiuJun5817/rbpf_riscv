@@ -1,3 +1,6 @@
 {
+    "rust-analyzer.cargo.target": "riscv64gc-unknown-linux-gnu",
+    "rust-analyzer.checkOnSave.command": "clippy",
+    "rust-analyzer.checkOnSave.extraArgs": ["--target", "riscv64gc-unknown-linux-gnu"],
     "rust-analyzer.runnables.extraEnv": null
 }

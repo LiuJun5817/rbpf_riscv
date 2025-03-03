@@ -1,3 +1,5 @@
+#![allow(clippy::arithmetic_side_effects)]
+
 //! This module relocates a BPF ELF
 
 // Note: Typically ELF shared objects are loaded using the program headers and

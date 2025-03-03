@@ -18,7 +18,6 @@ use std::io::Write;
 use std::mem::offset_of;
 use std::{fmt::Debug, mem, ptr};
 
-use crate::riscv;
 use crate::{
     ebpf::{self, FIRST_SCRATCH_REG, FRAME_PTR_REG, INSN_SIZE, SCRATCH_REGS, STACK_PTR_REG},
     elf::Executable,
@@ -2131,7 +2130,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 unsafe { destination.offset_from(jump.location) } as i32 ;// Relative jump
                 // - mem::size_of::<i32>() as i32; // Jump from end of instruction
             println!("offset_value:{:?}",offset_value);
-            let address: *const u32 = jump.location as *const u32;  // 这里是你的示例地址
+            let address: *const u32 = jump.location.cast::<u32>();  // 这里是你的示例地址
     
             unsafe {
                 // 从指定的地址读取4个字节的指令
