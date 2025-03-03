@@ -4,18 +4,17 @@ use std::fs::{File, OpenOptions};
 use std::path::Path;
 
 #[cfg(not(feature = "shuttle-test"))]
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 #[cfg(feature = "shuttle-test")]
 use shuttle::rand::{thread_rng, Rng};
 
 use rand::{
-    distributions::{Distribution, Uniform},
+    distributions::Uniform,
     rngs::SmallRng,
     SeedableRng,
 };
 use std::io::Write;
-use std::mem::offset_of;
 use std::{fmt::Debug, mem, ptr};
 
 use crate::{
@@ -68,9 +67,9 @@ impl JitProgram {
             return Ok(());
         }
         let raw = self.pc_section.as_ptr() as *mut u8;
-        let element_size = std::mem::size_of::<usize>(); // 获取 usize 的大小（4 或 8）
+        //let element_size = std::mem::size_of::<usize>(); // 获取 usize 的大小（4 或 8）
         let pc_loc_table_size =
-            round_to_page_size(self.pc_section.len() * element_size, self.page_size);
+            round_to_page_size(std::mem::size_of_val(self.pc_section), self.page_size);
         let over_allocated_code_size = round_to_page_size(self.text_section.len(), self.page_size);
         let code_size = round_to_page_size(text_section_usage, self.page_size);
         unsafe {
