@@ -240,27 +240,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "riscv-main"
-version = "0.1.0"
-dependencies = [
- "arbitrary",
- "byteorder 1.5.0",
- "combine",
- "elf",
- "gdbstub",
- "goblin",
- "hash32",
- "json",
- "libc",
- "log",
- "rand",
- "rustc-demangle",
- "scroll",
- "thiserror",
- "winapi",
-]
-
-[[package]]
 name = "rustc-demangle"
 version = "0.1.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -287,6 +266,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana_rbpf"
+version = "0.1.0"
+dependencies = [
+ "arbitrary",
+ "byteorder 1.5.0",
+ "combine",
+ "elf",
+ "gdbstub",
+ "goblin",
+ "hash32",
+ "json",
+ "libc",
+ "log",
+ "rand",
+ "rustc-demangle",
+ "scroll",
+ "test_utils",
+ "thiserror",
+ "winapi",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -295,6 +296,14 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "test_utils"
+version = "0.2.31"
+dependencies = [
+ "libc",
+ "solana_rbpf",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "riscv-main"
+name = "solana_rbpf"
 version = "0.1.0"
 edition = "2021"
 

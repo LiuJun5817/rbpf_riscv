@@ -18,7 +18,7 @@ use solana_rbpf::{
     ebpf,
     memory_region::MemoryRegion,
     program::{BuiltinFunction, BuiltinProgram, FunctionRegistry},
-    static_analysis::Analysis,
+    //static_analysis::Analysis,
     verifier::RequisiteVerifier,
     vm::{Config, ContextObject, TestContextObject},
 };
@@ -64,7 +64,7 @@ macro_rules! test_interpreter_and_jit {
                 mem,
             )
         };
-        #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+        #[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
         {
             #[allow(unused_mut)]
             $executable.jit_compile().unwrap();

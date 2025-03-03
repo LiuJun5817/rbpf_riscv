@@ -11,8 +11,8 @@ macro_rules! exclude_operand_sizes {
 
 // RISC-V 64 寄存器定义
 //参数/返回值寄存器
-pub const A0: u8 = 10;
-pub const A1: u8 = 11;
+pub const A0: u8 = 10; // A0 = x10
+pub const A1: u8 = 11; // A1 = x11
 pub const A2: u8 = 12;
 pub const A3: u8 = 13;
 pub const A4: u8 = 14;
@@ -49,13 +49,12 @@ pub const SP: u8 = 2; // 栈指针 相当于x86_64中的RSP寄存器
 pub const GP: u8 = 3; //全局指针
 pub const TP: u8 = 4; //线程指针
 
-//RISC-V 参数寄存器（调用约定）
-// pub const ARGUMENT_REGISTERS: [u8; 6] = [A3, A2, A1, T6, A4, A5];
-// pub const CALLER_SAVED_REGISTERS: [u8; 9] = [A0, T6, A1, A2, A3, A4, A5, A6, A7]; // a0 to a7 are caller saved
-// pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S1, S0, S2, S3, S4, S5]; // s0 to s11 are callee saved
 
 pub const ARGUMENT_REGISTERS: [u8; 6] = [A0, A1, A2, A3, A4, A5];
+
+// why this order?
 pub const CALLER_SAVED_REGISTERS: [u8; 9] = [RA, A3, A2, A1, A0, A4, A5, A6, A7]; // a0 to a7 are caller saved
+
 pub const CALLEE_SAVED_REGISTERS: [u8; 6] = [S0, S1, S2, S3, S4, S5]; // s0 to s11 are callee saved
 
 #[derive(Debug, Clone, Copy)]

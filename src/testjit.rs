@@ -1632,7 +1632,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 }
 
-// #[cfg(all(test, target_arch = "x86_64", not(target_os = "windows")))]
+// #[cfg(all(test, target_arch = "riscv64", not(target_os = "windows")))]
 // mod tests {
 //     use super::*;
 //     use crate::{

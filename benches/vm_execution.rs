@@ -9,7 +9,7 @@
 extern crate solana_rbpf;
 extern crate test;
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 use solana_rbpf::{ebpf, memory_region::MemoryRegion, program::FunctionRegistry, vm::Config};
 use solana_rbpf::{
     elf::Executable, program::BuiltinProgram, verifier::RequisiteVerifier, vm::TestContextObject,
@@ -43,7 +43,7 @@ fn bench_init_interpreter_start(bencher: &mut Bencher) {
     });
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_init_jit_start(bencher: &mut Bencher) {
     let mut file = File::open("tests/elfs/rodata_section.so").unwrap();
@@ -70,7 +70,7 @@ fn bench_init_jit_start(bencher: &mut Bencher) {
     });
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 fn bench_jit_vs_interpreter(
     bencher: &mut Bencher,
     assembly: &str,
@@ -129,7 +129,7 @@ fn bench_jit_vs_interpreter(
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_address_translation(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
@@ -147,7 +147,7 @@ fn bench_jit_vs_interpreter_address_translation(bencher: &mut Bencher) {
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 static ADDRESS_TRANSLATION_STACK_CODE: &str = "
     mov r1, r2
     and r1, 4095
@@ -159,7 +159,7 @@ static ADDRESS_TRANSLATION_STACK_CODE: &str = "
     jlt r2, 0x10000, -8
     exit";
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_address_translation_stack_fixed(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
@@ -174,7 +174,7 @@ fn bench_jit_vs_interpreter_address_translation_stack_fixed(bencher: &mut Benche
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_address_translation_stack_dynamic(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
@@ -189,7 +189,7 @@ fn bench_jit_vs_interpreter_address_translation_stack_dynamic(bencher: &mut Benc
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_empty_for_loop(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
@@ -206,7 +206,7 @@ fn bench_jit_vs_interpreter_empty_for_loop(bencher: &mut Bencher) {
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_call_depth_fixed(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
@@ -236,7 +236,7 @@ fn bench_jit_vs_interpreter_call_depth_fixed(bencher: &mut Bencher) {
     );
 }
 
-#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "x86_64"))]
+#[cfg(all(feature = "jit", not(target_os = "windows"), target_arch = "riscv64"))]
 #[bench]
 fn bench_jit_vs_interpreter_call_depth_dynamic(bencher: &mut Bencher) {
     bench_jit_vs_interpreter(
