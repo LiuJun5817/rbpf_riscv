@@ -9,11 +9,8 @@ use rand::Rng;
 #[cfg(feature = "shuttle-test")]
 use shuttle::rand::{thread_rng, Rng};
 
-use rand::{
-    distributions::Uniform,
-    rngs::SmallRng,
-    SeedableRng,
-};
+// use rand::{distributions::Uniform, rngs::SmallRng, SeedableRng};
+use rand::{rngs::SmallRng, SeedableRng};
 use std::io::Write;
 use std::{fmt::Debug, mem, ptr};
 
@@ -264,8 +261,8 @@ enum RuntimeEnvironmentSlot {
     ContextObjectPointer = 3,
     PreviousInstructionMeter = 4,
     DueInsnCount = 5,
-    StopwatchNumerator = 6,
-    StopwatchDenominator = 7,
+    // StopwatchNumerator = 6,
+    // StopwatchDenominator = 7,
     Registers = 8,
     ProgramResult = 20,
     MemoryMapping = 28,
@@ -282,11 +279,11 @@ pub struct JitCompiler<'a, C: ContextObject> {
     config: &'a Config,
     pc: usize,
     last_instruction_meter_validation_pc: usize,
-    next_noop_insertion: u32,
-    noop_range: Uniform<u32>,
+    // next_noop_insertion: u32,
+    // noop_range: Uniform<u32>,
     runtime_environment_key: i32,
-    diversification_rng: SmallRng,
-    stopwatch_is_active: bool,
+    // diversification_rng: SmallRng,
+    // stopwatch_is_active: bool,
 }
 
 #[rustfmt::skip]
@@ -322,7 +319,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         let runtime_environment_key = get_runtime_environment_key();
         // let runtime_environment_key:i32 = 0;
-        let mut diversification_rng = SmallRng::from_rng(rand::thread_rng()).map_err(|_| EbpfError::JitNotCompiled)?;
+        // let mut diversification_rng = SmallRng::from_rng(rand::thread_rng()).map_err(|_| EbpfError::JitNotCompiled)?;
         
         Ok(Self {
             result: JitProgram::new(pc, code_length_estimate)?,
@@ -335,11 +332,11 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             config,
             pc: 0,
             last_instruction_meter_validation_pc: 0,
-            next_noop_insertion: if config.noop_instruction_rate == 0 { u32::MAX } else { diversification_rng.gen_range(0..config.noop_instruction_rate * 2) },
-            noop_range: Uniform::new_inclusive(0, config.noop_instruction_rate * 2),
+            // next_noop_insertion: if config.noop_instruction_rate == 0 { u32::MAX } else { diversification_rng.gen_range(0..config.noop_instruction_rate * 2) },
+            // noop_range: Uniform::new_inclusive(0, config.noop_instruction_rate * 2),
             runtime_environment_key,
-            diversification_rng,
-            stopwatch_is_active: false,
+            // diversification_rng,
+            // stopwatch_is_active: false,
         })
     }
 
@@ -359,7 +356,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
             // Regular instruction meter checkpoints to prevent long linear runs from exceeding their budget
             if self.last_instruction_meter_validation_pc + self.config.instruction_meter_checkpoint_distance <= self.pc {
-                self.emit_validate_instruction_count(true, Some(self.pc));
+                self.emit_validate_instruction_count( Some(self.pc));
             }
             if self.config.enable_instruction_tracing {
                 println!("指令追踪开启：");
@@ -383,7 +380,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
 
                 ebpf::LD_DW_IMM if self.executable.get_sbpf_version().enable_lddw() => {
-                    self.emit_validate_and_profile_instruction_count(false,true, Some(self.pc + 2));
+                    self.emit_validate_and_profile_instruction_count(true, Some(self.pc + 2));
                     self.pc += 1;
                     self.result.pc_section[self.pc] = self.anchors[ANCHOR_CALL_UNSUPPORTED_INSTRUCTION] as usize;
                     ebpf::augment_lddw_unchecked(self.program, &mut insn);
@@ -780,14 +777,14 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
                 // BPF_JMP class
                 ebpf::JA         => {
-                    self.emit_validate_and_profile_instruction_count(false,true, Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true, Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::jal(jump_offset as i64, ZERO));
                 },
                 // Jump if Equal
                 ebpf::JEQ_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -795,7 +792,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JEQ_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::beq(OperandSize::S64, src,dst,  jump_offset as i64));
@@ -803,7 +800,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 //Jump if Greater Than
                 ebpf::JGT_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -811,7 +808,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JGT_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, src,dst,  jump_offset as i64));
@@ -819,7 +816,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 //Jump if Greater or Equal
                 ebpf::JGE_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -827,7 +824,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JGE_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64,dst, src,  jump_offset as i64));
@@ -835,7 +832,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 //Jump if less Than
                 ebpf::JLT_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -843,7 +840,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JLT_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bltu(OperandSize::S64, dst, src, jump_offset as i64));
@@ -851,7 +848,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 }
                 //Jump if less or Equal
                 ebpf::JLE_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -859,7 +856,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JLE_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bgeu(OperandSize::S64, src, dst, jump_offset as i64));
@@ -867,7 +864,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 //Jump if Bitwise AND is Non-Zero
                 ebpf::JSET_IMM   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     self.emit_ins(RISCVInstruction::and(OperandSize::S64, T1, dst, T1));
@@ -876,7 +873,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSET_REG   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     self.emit_ins(RISCVInstruction::and(OperandSize::S64, src, dst, T1));
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -885,7 +882,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 // Jump if Not Equal
                 ebpf::JNE_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -893,7 +890,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JNE_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bne(OperandSize::S64, src,dst,  jump_offset as i64));
@@ -902,7 +899,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 
                 //Jump if Greater Than Signed
                 ebpf::JSGT_IMM   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count(true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -910,7 +907,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSGT_REG   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::blt(OperandSize::S64, src,dst,  jump_offset as i64));
@@ -918,7 +915,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 //Jump if Greater or Equal Signed
                 ebpf::JSGE_IMM   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -926,7 +923,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSGE_REG   => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bge(OperandSize::S64,dst, src,  jump_offset as i64));
@@ -934,7 +931,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 //Jump if less Than
                 ebpf::JSLT_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -942,7 +939,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSLT_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::blt(OperandSize::S64, dst, src, jump_offset as i64));
@@ -950,7 +947,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 },
                 //Jump if less or Equal Signed
                 ebpf::JSLE_IMM    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, T1, insn.imm);
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
@@ -958,7 +955,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     self.emit_undo_profile_instruction_count(target_pc);
                 },
                 ebpf::JSLE_REG    => {
-                    self.emit_validate_and_profile_instruction_count(false, true,Some(target_pc));
+                    self.emit_validate_and_profile_instruction_count( true,Some(target_pc));
                     self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc as i64);
                     let jump_offset = self.relative_to_target_pc(target_pc, 0);
                     self.emit_ins(RISCVInstruction::bge(OperandSize::S64, src, dst, jump_offset as i64));
@@ -975,7 +972,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
                     if external {
                         if let Some((_function_name, function)) = self.executable.get_loader().get_function_registry().lookup_by_key(insn.imm as u32) {
-                            self.emit_validate_and_profile_instruction_count(true, false, Some(0));
+                            self.emit_validate_and_profile_instruction_count( false, Some(0));
                             self.load_immediate(OperandSize::S64, REGISTER_SCRATCH, function as usize as i64);
                             self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
                             self.store(OperandSize::S64, SP, RA, 0);
@@ -1034,7 +1031,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     }
                     
                     // and return
-                    self.emit_validate_and_profile_instruction_count(false, false, Some(0));
+                    self.emit_validate_and_profile_instruction_count( false, Some(0));
                     self.emit_ins(RISCVInstruction::return_near());
                 }
                 _ => return Err(EbpfError::UnsupportedInstruction),
@@ -1045,7 +1042,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.offset_in_text_section + MAX_MACHINE_CODE_LENGTH_PER_INSTRUCTION > self.result.text_section.len() {
             return Err(EbpfError::ExhaustedTextSegment(self.pc));
         }   
-        self.emit_validate_and_profile_instruction_count(false,true, Some(self.pc + 2));
+        self.emit_validate_and_profile_instruction_count(true, Some(self.pc + 2));
         self.emit_set_exception_kind(EbpfError::ExecutionOverrun);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION, 0), ZERO));
 
@@ -1055,9 +1052,9 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }
 
     #[inline]
-    fn emit_validate_and_profile_instruction_count(&mut self, exclusive: bool, user_provided: bool, target_pc: Option<usize>) {
+    fn emit_validate_and_profile_instruction_count(&mut self, user_provided: bool, target_pc: Option<usize>) {
         if self.config.enable_instruction_meter {
-            self.emit_validate_instruction_count(exclusive, Some(self.pc));
+            self.emit_validate_instruction_count(Some(self.pc));
             self.emit_profile_instruction_count(user_provided,target_pc);
         }
     }
@@ -1095,7 +1092,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
     /// 判断偏移量并执行load指令
     pub fn load(&mut self,size: OperandSize,source1: u8,offset:i64,destination: u8){
-        if offset >= -2048 && offset <= 2047 {
+        if (-2048..=2047).contains(&offset) {
             // 偏移量在 12 位范围内，使用 ld
             self.emit_ins(RISCVInstruction::load(size, source1, offset, destination));
         } else {
@@ -1107,7 +1104,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
     /// 判断偏移量并执行store指令
     pub fn store(&mut self,size: OperandSize,source1: u8, source2: u8,offset:i64){
-        if offset >= -2048 && offset <= 2047 {
+        if (-2048..=2047).contains(&offset) {
             // 偏移量在 12 位范围内，使用 ld
             self.emit_ins(RISCVInstruction::store(size, source1, source2, offset));
         } else {
@@ -1117,7 +1114,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         }
     }
 
-    /// 寄存器跳转并链接，若rd为ZERO，仅做寄存器跳转
+    // 寄存器跳转并链接，若rd为ZERO，仅做寄存器跳转
     // pub fn jalr(&mut self,size: OperandSize,source1: u8,offset:i64,destination: u8){
     //     if offset >= -2048 && offset <= 2047 {
     //         // 偏移量在 12 位范围内，使用 jalr
@@ -1128,7 +1125,6 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     //         self.emit_ins(RISCVInstruction::jalr(T1, 0, destination));
     //     }
     // }
-
     ///清零高32位
     pub fn clear_high_32bits(&mut self,destination: u8) {
         self.emit_ins(RISCVInstruction::slli(OperandSize::S64, destination, 32, destination));
@@ -1137,7 +1133,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
     /// 将立即数分解为高 20 位和低 12 位，支持有符号扩展并生成相应的 RISC-V 指令
     fn load_immediate_with_lui_and_addi(&mut self,size: OperandSize, destination: u8, immediate: i64) {
-        if immediate >= -2048 && immediate <= 2047 {
+        if (-2048..=2047).contains(&immediate) {
             // 立即数在 12 位范围内，使用 ADDI
             self.emit_ins(RISCVInstruction::addi(size, 0, immediate, destination));
         } else {
@@ -1355,7 +1351,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.should_sanitize_constant(immediate) {
             self.emit_sanitized_load_immediate(size, T4, immediate);
             self.emit_ins(RISCVInstruction::or(size, destination, T4, destination));
-        } else if immediate >= -2048 && immediate <= 2047 {
+        } else if (-2048..=2047).contains(&immediate) {
             // 立即数在 12 位范围内，直接使用 ORI
             self.emit_ins(RISCVInstruction::ori(
                 size,
@@ -1374,7 +1370,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.should_sanitize_constant(immediate) {
             self.emit_sanitized_load_immediate(size, T4, immediate);
             self.emit_ins(RISCVInstruction::xor(size, destination, T4, destination));
-        } else if immediate >= -2048 && immediate <= 2047 {
+        } else if (-2048..=2047).contains(&immediate) {
             // 立即数在 12 位范围内，直接使用 XORI
             self.emit_ins(RISCVInstruction::xori(
                 size,
@@ -1393,7 +1389,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         if self.should_sanitize_constant(immediate) {
             self.emit_sanitized_load_immediate(size, T4, immediate);
             self.emit_ins(RISCVInstruction::and(size, destination, T4, destination));
-        } else if immediate >= -2048 && immediate <= 2047 {
+        } else if (-2048..=2047).contains(&immediate) {
             // 立即数在 12 位范围内，直接使用 ANDI
             self.emit_ins(RISCVInstruction::andi(
                 size,
@@ -1408,7 +1404,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
     }   
 
     #[inline]
-    fn emit_validate_instruction_count(&mut self, exclusive: bool, pc: Option<usize>) {
+    fn emit_validate_instruction_count(&mut self, pc: Option<usize>) {
         if !self.config.enable_instruction_meter {
             return;
         }
@@ -1457,7 +1453,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         // Signed division overflows with MIN / -1.
         // If we have an immediate and it's not -1, we can skip the following check.
-        if signed  == true {
+        if signed {
             self.load_immediate(size, T4, if let OperandSize::S64 = size { i64::MIN } else { i32::MIN as u32 as i64 });
             self.emit_ins(RISCVInstruction::sltu(OperandSize::S64, dst, T4, T4));// if (dst < T4) ? 1 : 0 只有dst等于最小值时，结果为0
             self.emit_ins(RISCVInstruction::sltiu(OperandSize::S64, T4, 1, T4));// if (T4 < 1) ? 1 : 0
@@ -1634,7 +1630,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
         // Quit gracefully
         self.set_anchor(ANCHOR_EXIT);
-        self.emit_validate_instruction_count(false, None);
+        self.emit_validate_instruction_count(None);
         self.load_immediate(OperandSize::S64, T1, self.slot_in_vm(RuntimeEnvironmentSlot::ProgramResult) as i64);
         self.emit_ins(RISCVInstruction::add(OperandSize::S64, REGISTER_PTR_TO_VM, T1, REGISTER_OTHER_SCRATCH));
         self.store(OperandSize::S64, REGISTER_OTHER_SCRATCH, REGISTER_MAP[0], std::mem::size_of::<u64>() as i64);
@@ -1644,7 +1640,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         // Handler for exceptions which report their pc
         self.set_anchor(ANCHOR_THROW_EXCEPTION);
         // Validate that we did not reach the instruction meter limit before the exception occured
-        self.emit_validate_instruction_count(false, None);
+        self.emit_validate_instruction_count(None);
         self.emit_ins(RISCVInstruction::jal(self.relative_to_anchor(ANCHOR_THROW_EXCEPTION_UNCHECKED, 0), ZERO));
 
         // Handler for EbpfError::CallDepthExceeded
@@ -1977,7 +1973,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, T5, 1, T5));
                         self.store(OperandSize::S64, SP, T5, 0);
                     } else {
-                        self.load_immediate(OperandSize::S64, T1, offset as i64);
+                        self.load_immediate(OperandSize::S64, T1, offset);
                         self.emit_ins(RISCVInstruction::add(OperandSize::S64, reg, T1, dst));
                     }
                 },
@@ -2028,14 +2024,14 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
         self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8 * saved_registers_len as i64, SP));
     }
 
-    #[inline]
-    fn call_immediate(&mut self, offset:i64){
-        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
-        self.store(OperandSize::S64, SP, RA, 0);
-        self.emit_ins(RISCVInstruction::jal(offset, RA));
-        self.load(OperandSize::S64, SP, 0, RA);
-        self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
-    }
+    // #[inline]
+    // fn call_immediate(&mut self, offset:i64){
+    //     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, -8, SP));
+    //     self.store(OperandSize::S64, SP, RA, 0);
+    //     self.emit_ins(RISCVInstruction::jal(offset, RA));
+    //     self.load(OperandSize::S64, SP, 0, RA);
+    //     self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
+    // }
     
     #[inline]
     fn call_reg(&mut self, dst: u8){
@@ -2075,7 +2071,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
 
                 // self.call_immediate(self.relative_to_anchor(ANCHOR_ANCHOR_INTERNAL_FUNCTION_CALL_REG, 0));
 
-                self.emit_validate_and_profile_instruction_count(false, false, None);
+                self.emit_validate_and_profile_instruction_count( false, None);
                 self.emit_ins(RISCVInstruction::mov(OperandSize::S64, REGISTER_MAP[0], REGISTER_OTHER_SCRATCH));
                 self.load(OperandSize::S64, SP, 0, REGISTER_MAP[0]);// Restore RAX
                 self.emit_ins(RISCVInstruction::addi(OperandSize::S64, SP, 8, SP));
@@ -2084,7 +2080,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
             },
             Value::Constant64(target_pc, user_provided) => {
                 debug_assert!(user_provided);
-                self.emit_validate_and_profile_instruction_count(false, user_provided, Some(target_pc as usize));
+                self.emit_validate_and_profile_instruction_count(user_provided, Some(target_pc as usize));
                 if user_provided && self.should_sanitize_constant(target_pc) {
                     self.emit_sanitized_load_immediate(OperandSize::S64, REGISTER_SCRATCH, target_pc);
                 } else {
@@ -2138,7 +2134,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                 // 输出机器码，保持8位十六进制格式，和gdb一致
                 println!("original_instruction at address 0x7ffff7fd17d0: 0x{:08x}", original_instruction);
                 let op = original_instruction & 0x7f;
-                if op != 0x6f as u32 {
+                if op != 0x6f_u32 {
                     // B 型指令（Branch）
                     let imm_11 = (offset_value & 0x800) >> 4; // 提取立即数第 12 位，移动到 bit[7]
                     let imm_4_1 = (offset_value & 0x1E) << 7; // 提取立即数 bit[1:4]，移动到 bit[8:11]
@@ -2147,7 +2143,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     let rs2_rs1_funct3 = (original_instruction & 0x1FFF000) as i32;
                     let opcode = (original_instruction & 0x7F) as i32;
                     let instruction = imm_12 | imm_10_5 | rs2_rs1_funct3 | imm_4_1 | imm_11 | opcode;
-                    unsafe { ptr::write_unaligned(jump.location as *mut i32, instruction); }
+                    ptr::write_unaligned(jump.location as *mut i32, instruction); 
                 } else {
                     // J 型指令 (Jump)
                     let imm_19_12 = offset_value & 0xFF000; // 提取立即数 bit[12:19]
@@ -2157,7 +2153,7 @@ impl<'a, C: ContextObject> JitCompiler<'a, C> {
                     let rd = (original_instruction & 0xF80) as i32;
                     let opcode = 0x6f & 0x7F;
                     let instruction= imm_20 | imm_10_1 | imm_11 | imm_19_12 | rd | opcode;
-                    unsafe { ptr::write_unaligned(jump.location as *mut i32, instruction); }
+                    ptr::write_unaligned(jump.location as *mut i32, instruction); 
                 }
             }         
         }

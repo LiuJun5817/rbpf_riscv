@@ -36,19 +36,18 @@ pub const S2: u8 = 18;
 pub const S3: u8 = 19;
 pub const S4: u8 = 20;
 pub const S5: u8 = 21;
-pub const S6: u8 = 22;
-pub const S7: u8 = 23;
-pub const S8: u8 = 24;
-pub const S9: u8 = 25;
+// pub const S6: u8 = 22;
+// pub const S7: u8 = 23;
+// pub const S8: u8 = 24;
+// pub const S9: u8 = 25;
 pub const S10: u8 = 26;
-pub const S11: u8 = 27;
+// pub const S11: u8 = 27;
 
 pub const ZERO: u8 = 0; //zero 寄存器（值始终为0）
 pub const RA: u8 = 1; // Return Address (Link Register)
 pub const SP: u8 = 2; // 栈指针 相当于x86_64中的RSP寄存器
-pub const GP: u8 = 3; //全局指针
-pub const TP: u8 = 4; //线程指针
-
+                      // pub const GP: u8 = 3; //全局指针
+                      // pub const TP: u8 = 4; //线程指针
 
 pub const ARGUMENT_REGISTERS: [u8; 6] = [A0, A1, A2, A3, A4, A5];
 
@@ -170,7 +169,7 @@ impl RISCVInstruction {
             }
             RISCVInstructionType::J => {
                 // J 型指令 (Jump)
-                let imm_19_12 = (self.immediate.unwrap() & 0xFF000); // 提取立即数 bit[12:19]
+                let imm_19_12 = self.immediate.unwrap() & 0xFF000; // 提取立即数 bit[12:19]
                 let imm_11 = (self.immediate.unwrap() & 0x800) << 9; // 提取立即数 bit[11]
                 let imm_10_1 = (self.immediate.unwrap() & 0x7FE) << 20; // 提取立即数 bit[1:10]
                 let imm_20 = (self.immediate.unwrap() & 0x100000) << 11; // 提取立即数 bit[20]
@@ -179,27 +178,28 @@ impl RISCVInstruction {
                 (imm_20 | imm_10_1 | imm_11 | imm_19_12 | rd | opcode)
                     .try_into()
                     .unwrap()
-            }
-            _ => {
-                panic!("暂不支持的指令类型");
-            }
+            } // _ => {
+              //     panic!("暂不支持的指令类型");
+              // }
         }
     }
 
-    /// No operation (NOP) for RISC-V
+    // No operation (NOP) for RISC-V
+    /*
     #[inline]
     pub const fn noop() -> Self {
         Self {
-            inst_type: RISCVInstructionType::I,
-            opcode: 0x13, // 操作码为 0x13 对应于 ADDI 指令
-            rd: Some(0),  // 操作数 1 (x0)
-            funct3: Some(0),
-            rs1: Some(0),           // 操作数 2 (x0)
-            immediate: Some(0),     // 立即数为 0
-            size: OperandSize::S32, // 对应于 32 位操作数大小
-            ..Self::DEFAULT
+        inst_type: RISCVInstructionType::I,
+        opcode: 0x13, // 操作码为 0x13 对应于 ADDI 指令
+        rd: Some(0),  // 操作数 1 (x0)
+        funct3: Some(0),
+        rs1: Some(0),           // 操作数 2 (x0)
+        immediate: Some(0),     // 立即数为 0
+        size: OperandSize::S32, // 对应于 32 位操作数大小
+        ..Self::DEFAULT
         }
     }
+    */
 
     /// Move source to destination (ADDI rd, rs1, 0)
     #[inline]
@@ -370,22 +370,22 @@ impl RISCVInstruction {
         }
     }
 
-    /// Multiply rs1 (signed) and rs2 (unsigned) and store high 64 bits in destination (MULHSU rd, rs1, rs2)
-    #[inline]
-    pub const fn mulhsu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
-        exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
-        Self {
-            inst_type: RISCVInstructionType::R,
-            opcode: 0x33, // R-type opcode for arithmetic operations
-            rd: Some(destination),
-            funct3: Some(0x2), // funct3 for MULHSU
-            rs1: Some(source1),
-            rs2: Some(source2),
-            funct7: Some(0x1), // funct7 for MULHSU
-            immediate: None,
-            size,
-        }
-    }
+    // /// Multiply rs1 (signed) and rs2 (unsigned) and store high 64 bits in destination (MULHSU rd, rs1, rs2)
+    // #[inline]
+    // pub const fn mulhsu(size: OperandSize, source1: u8, source2: u8, destination: u8) -> Self {
+    //     exclude_operand_sizes!(size, OperandSize::S0 | OperandSize::S8 | OperandSize::S16);
+    //     Self {
+    //         inst_type: RISCVInstructionType::R,
+    //         opcode: 0x33, // R-type opcode for arithmetic operations
+    //         rd: Some(destination),
+    //         funct3: Some(0x2), // funct3 for MULHSU
+    //         rs1: Some(source1),
+    //         rs2: Some(source2),
+    //         funct7: Some(0x1), // funct7 for MULHSU
+    //         immediate: None,
+    //         size,
+    //     }
+    // }
 
     /// Multiply rs1 and rs2, and store the high 64 bits of the result in rd (MULH rd, rs1, rs2)
     #[inline]
@@ -985,25 +985,25 @@ impl RISCVInstruction {
         }
     }
 
-    /// Add imm and rs1 to destination (ADDIW rd, rs1, imm) 只保留低 32 位
-    #[inline]
-    pub const fn addiw(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
-        // 仅在 RV64 中支持 ADDIW 指令，因此排除非 64 位大小
-        exclude_operand_sizes!(
-            size,
-            OperandSize::S0 | OperandSize::S8 | OperandSize::S16 | OperandSize::S32
-        );
-        Self {
-            inst_type: RISCVInstructionType::I,
-            opcode: 0x1B,
-            rd: Some(destination),
-            funct3: Some(0),
-            rs1: Some(source1),
-            immediate: Some(immediate),
-            size,
-            ..Self::DEFAULT
-        }
-    }
+    // /// Add imm and rs1 to destination (ADDIW rd, rs1, imm) 只保留低 32 位
+    // #[inline]
+    // pub const fn addiw(size: OperandSize, source1: u8, immediate: i64, destination: u8) -> Self {
+    //     // 仅在 RV64 中支持 ADDIW 指令，因此排除非 64 位大小
+    //     exclude_operand_sizes!(
+    //         size,
+    //         OperandSize::S0 | OperandSize::S8 | OperandSize::S16 | OperandSize::S32
+    //     );
+    //     Self {
+    //         inst_type: RISCVInstructionType::I,
+    //         opcode: 0x1B,
+    //         rd: Some(destination),
+    //         funct3: Some(0),
+    //         rs1: Some(source1),
+    //         immediate: Some(immediate),
+    //         size,
+    //         ..Self::DEFAULT
+    //     }
+    // }
 
     /// Jump to the address in rs1 + imm and link to rd (typically ra)
     #[inline]
